@@ -29,6 +29,15 @@ npm run init-db
 npm start
 ```
 
+### Docker
+```bash
+npm run docker:up         # Iniciar todos os serviços
+npm run docker:down       # Parar serviços
+npm run docker:init-db    # Inicializar banco
+npm run docker:logs       # Ver logs
+npm run docker:dev        # Desenvolvimento com rebuild
+```
+
 ## Estrutura do Projeto
 
 - `src/` - Código fonte da aplicação
@@ -78,8 +87,16 @@ Se necessário, adicionar eslint ou outras ferramentas de qualidade de código.
 
 ## Notas para Desenvolvimento
 
+### Desenvolvimento Local
 - O servidor roda na porta 3000 por padrão
 - Usar `nodemon` em desenvolvimento para reload automático
 - Testes estão configurados para rodar com Jest
 - Banco PostgreSQL deve estar rodando antes de iniciar a aplicação
 - Usar `npm run init-db` para criar as tabelas necessárias
+
+### Docker (Recomendado)
+- Usar `npm run docker:up` para iniciar todos os serviços
+- API disponível na porta 3001 (http://localhost:3001)
+- PgAdmin disponível na porta 8080 (http://localhost:8080)
+- PostgreSQL na porta 5432
+- Usar `npm run docker:init-db` para inicializar o banco no container

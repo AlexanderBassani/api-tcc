@@ -8,7 +8,13 @@
     "dev": "nodemon src/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "init-db": "node scripts/init-db.js"
+    "init-db": "node scripts/init-db.js",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:init-db": "docker-compose exec api npm run init-db",
+    "docker:dev": "docker-compose up --build"
   },
   "keywords": [],
   "author": "",
