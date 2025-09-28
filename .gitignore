@@ -4,3 +4,18 @@ coverage/
 .nyc_output/
 dist/
 *.log
+
+# Dados do banco PostgreSQL local
+data/postgres/
+data/
+
+# Logs do Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
