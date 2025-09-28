@@ -14,7 +14,11 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:init-db": "docker-compose exec api npm run init-db",
-    "docker:dev": "docker-compose up --build"
+    "docker:dev": "docker-compose up --build",
+    "docker:dev-hot": "docker-compose -f docker-compose.dev.yml up --build",
+    "docker:dev-down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:dev-logs": "docker-compose -f docker-compose.dev.yml logs -f api",
+    "docker:dev-init-db": "docker-compose -f docker-compose.dev.yml exec api npm run init-db"
   },
   "keywords": [],
   "author": "",

@@ -27,7 +27,7 @@ services:
     build: .
     container_name: api_app
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: api_db
@@ -43,6 +43,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+    command: npm run dev
 
   # PgAdmin (opcional - interface web para PostgreSQL)
   pgadmin:
