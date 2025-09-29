@@ -35,6 +35,7 @@ services:
       DB_PASSWORD: password
     ports:
       - "3001:3000"
+      - "9229:9229"
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +44,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run dev
+    command: npm run dev:debug
 
   # PgAdmin (opcional - interface web para PostgreSQL)
   pgadmin:

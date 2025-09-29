@@ -1,6 +1,6 @@
-# API Node.js com Express, Jest e PostgreSQL
+# API Node.js com Express, JWT e PostgreSQL
 
-Uma API RESTful construída com Node.js, Express, Jest para testes e PostgreSQL como banco de dados, com suporte completo a Docker.
+Uma API RESTful construída com Node.js, Express, autenticação JWT, Jest para testes e PostgreSQL como banco de dados, com suporte completo a Docker e hot-reload.
 
 ## 🚀 Instalação Rápida com Docker (Recomendado)
 
@@ -45,7 +45,14 @@ DB_PASSWORD=password
 DB_NAME=api_db
 DB_PORT=5432
 PORT=3000
+
+# JWT Configuration
+JWT_SECRET=your-secret-key-change-this-in-production
+JWT_EXPIRES_IN=24h
+JWT_REFRESH_SECRET=your-refresh-secret-key-change-this-in-production
+JWT_REFRESH_EXPIRES_IN=7d
 ```
+⚠️ **IMPORTANTE:** Altere as chaves JWT em produção!
 
 4. Certifique-se de que o PostgreSQL está rodando e crie o banco de dados `api_db`
 5. Inicialize o banco de dados:
@@ -58,6 +65,7 @@ npm run init-db
 ### Desenvolvimento Local
 - `npm start` - Inicia o servidor em produção
 - `npm run dev` - Inicia o servidor em modo desenvolvimento (com nodemon)
+- `npm run dev:debug` - Inicia com debugger habilitado (porta 9229)
 - `npm test` - Executa os testes
 - `npm run test:watch` - Executa os testes em modo watch
 - `npm run init-db` - Inicializa o banco de dados
@@ -76,10 +84,24 @@ npm run init-db
 - `GET /` - Retorna mensagem de boas-vindas
 - `GET /health` - Retorna status da API
 
-### Usuários
+### Autenticação (Público)
+- `POST /api/users/register` - Registrar novo usuário (retorna JWT)
+- `POST /api/users/login` - Login com username/email e senha (retorna JWT)
+- `POST /api/users/refresh-token` - Renovar token de acesso
+
+### Usuários (Requer autenticação JWT)
 - `GET /api/users` - Lista todos os usuários
-- `GET /api/users/:id` - Busca usuário por ID
-- `POST /api/users` - Cria novo usuário
+- `GET /api/users/profile` - Ver perfil do usuário autenticado
+- `GET /api/users/:id` - Buscar usuário por ID
+- `POST /api/users` - Criar novo usuário (admin)
+- `PUT /api/users/profile` - Atualizar perfil do usuário autenticado
+- `POST /api/users/change-password` - Alterar senha do usuário autenticado
+
+### Autenticação JWT
+Para rotas protegidas, adicione o header:
+```
+Authorization: Bearer {seu_token_jwt}
+```
 
 ## 👤 Usuário Administrador
 
@@ -95,13 +117,16 @@ O sistema cria automaticamente um usuário administrador:
 ```
 src/
 ├── config/          # Configurações (banco de dados, inicialização)
-├── controllers/     # Controladores das rotas
+├── controllers/     # Controladores das rotas (userController com JWT)
+├── middleware/      # Middlewares (auth JWT, errorHandler)
 ├── models/          # Modelos (futura implementação)
-├── routes/          # Definição das rotas
+├── routes/          # Definição das rotas (userRoutes)
+├── utils/           # Utilitários
 ├── app.js          # Configuração do Express
 └── server.js       # Inicialização do servidor
 __tests__/          # Testes Jest
-scripts/            # Scripts utilitários
+scripts/            # Scripts utilitários (init-db)
+.vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
 docker-compose.yml  # Orquestração dos serviços
 ```
@@ -160,16 +185,49 @@ O projeto inclui os seguintes serviços:
 
 - **Backend:** Node.js, Express
 - **Banco:** PostgreSQL
-- **Segurança:** bcrypt para hash de senhas
+- **Autenticação:** JWT (jsonwebtoken)
+- **Segurança:** bcrypt/bcryptjs para hash de senhas
 - **Testes:** Jest, Supertest
 - **Infraestrutura:** Docker, Docker Compose
-- **Desenvolvimento:** nodemon, dotenv
+- **Desenvolvimento:** nodemon (hot-reload), dotenv
+
+## 🐛 Debug
+
+### Opção 1: Ver logs do Docker
+```bash
+npm run docker:logs
+```
+
+### Opção 2: Debug local com VS Code
+1. Pare o Docker: `npm run docker:down`
+2. Pressione `F5` no VS Code
+3. Escolha "Debug Local"
+4. Coloque breakpoints no código
+
+### Opção 3: Debug no Docker
+1. Altere `docker-compose.yml` linha 46: `command: npm run dev:debug`
+2. Reinicie: `npm run docker:down && npm run docker:up`
+3. Pressione `F5` no VS Code e escolha "Debug Docker"
+
+## 🔐 Segurança Implementada
+
+- ✅ Hash de senhas com bcrypt
+- ✅ Autenticação JWT (access + refresh tokens)
+- ✅ Proteção contra brute force (bloqueio após 5 tentativas)
+- ✅ Validação de entrada de dados
+- ✅ Soft delete de usuários
+- ✅ Tokens com expiração configurável
+- ✅ Middleware de autenticação para rotas protegidas
 
 ## 🚀 Próximos Passos
 
-1. Implementar autenticação JWT
-2. Adicionar middleware de autorização
-3. Criar endpoints de login/logout
-4. Implementar reset de senha
-5. Adicionar validação de dados
-6. Documentar API com Swagger
+1. ~~Implementar autenticação JWT~~ ✅
+2. ~~Adicionar middleware de autorização~~ ✅
+3. ~~Criar endpoints de login/logout~~ ✅
+4. Implementar reset de senha por email
+5. Implementar verificação de email
+6. Adicionar upload de imagem de perfil
+7. Implementar sistema de roles (admin, user)
+8. Documentar API com Swagger
+9. Adicionar rate limiting
+10. Implementar 2FA (Two-Factor Authentication)
