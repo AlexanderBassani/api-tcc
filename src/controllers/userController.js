@@ -439,111 +439,111 @@ const register = async (req, res) => {
   }
 };
 
-// const login = async (req, res) => {
-//   try {
-//     const { login, password } = req.body;
+const login = async (req, res) => {
+  try {
+    const { login, password } = req.body;
 
-//     if (!login || !password) {
-//       return res.status(400).json({
-//         error: 'Login e senha são obrigatórios',
-//         timestamp: new Date().toISOString(),
-//         path: req.path
-//       });
-//     }
+    if (!login || !password) {
+      return res.status(400).json({
+        error: 'Login e senha são obrigatórios',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
 
-//     // Buscar usuário por username ou email
-//     const result = await pool.query(
-//       `SELECT id, first_name, last_name, username, email, password_hash,
-//               status, email_verified, login_attempts, locked_until
-//        FROM users
-//        WHERE (username = $1 OR email = $1) AND deleted_at IS NULL`,
-//       [login]
-//     );
+    // Buscar usuário por username ou email
+    const result = await pool.query(
+      `SELECT id, first_name, last_name, username, email, password_hash,
+              status, email_verified, login_attempts, locked_until
+       FROM users
+       WHERE (username = $1 OR email = $1) AND deleted_at IS NULL`,
+      [login]
+    );
 
-//     if (result.rows.length === 0) {
-//       return res.status(401).json({
-//         error: 'Credenciais inválidas',
-//         timestamp: new Date().toISOString(),
-//         path: req.path
-//       });
-//     }
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        error: 'Credenciais inválidas',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
 
-//     const user = result.rows[0];
+    const user = result.rows[0];
 
-//     // Verificar se a conta está bloqueada
-//     if (user.locked_until && new Date(user.locked_until) > new Date()) {
-//       return res.status(423).json({
-//         error: 'Conta temporariamente bloqueada. Tente novamente mais tarde.',
-//         timestamp: new Date().toISOString(),
-//         path: req.path
-//       });
-//     }
+    // Verificar se a conta está bloqueada
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      return res.status(423).json({
+        error: 'Conta temporariamente bloqueada. Tente novamente mais tarde.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
 
-//     // Verificar se a conta está ativa
-//     if (user.status !== 'active') {
-//       return res.status(403).json({
-//         error: 'Conta inativa ou suspensa',
-//         timestamp: new Date().toISOString(),
-//         path: req.path
-//       });
-//     }
+    // Verificar se a conta está ativa
+    if (user.status !== 'active') {
+      return res.status(403).json({
+        error: 'Conta inativa ou suspensa',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
 
-//     // Verificar senha
-//     const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    // Verificar senha
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
-//     if (!passwordMatch) {
-//       // Incrementar tentativas de login
-//       const newAttempts = user.login_attempts + 1;
-//       let updateQuery = 'UPDATE users SET login_attempts = $1';
-//       const queryParams = [newAttempts, user.id];
+    if (!passwordMatch) {
+      // Incrementar tentativas de login
+      const newAttempts = user.login_attempts + 1;
+      let updateQuery = 'UPDATE users SET login_attempts = $1';
+      const queryParams = [newAttempts, user.id];
 
-//       // Bloquear conta após 5 tentativas
-//       if (newAttempts >= 5) {
-//         const lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
-//         updateQuery += ', locked_until = $3';
-//         queryParams.push(lockUntil);
-//       }
+      // Bloquear conta após 5 tentativas
+      if (newAttempts >= 5) {
+        const lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+        updateQuery += ', locked_until = $3';
+        queryParams.push(lockUntil);
+      }
 
-//       updateQuery += ' WHERE id = $2';
-//       await pool.query(updateQuery, queryParams);
+      updateQuery += ' WHERE id = $2';
+      await pool.query(updateQuery, queryParams);
 
-//       return res.status(401).json({
-//         error: 'Credenciais inválidas',
-//         timestamp: new Date().toISOString(),
-//         path: req.path
-//       });
-//     }
+      return res.status(401).json({
+        error: 'Credenciais inválidas',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
 
-//     // Resetar tentativas de login e atualizar último login
-//     await pool.query(
-//       'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
-//       [user.id]
-//     );
+    // Resetar tentativas de login e atualizar último login
+    await pool.query(
+      'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
 
-//     // Remover dados sensíveis
-//     delete user.password_hash;
-//     delete user.login_attempts;
-//     delete user.locked_until;
+    // Remover dados sensíveis
+    delete user.password_hash;
+    delete user.login_attempts;
+    delete user.locked_until;
 
-//     const token = generateToken(user);
-//     const refreshToken = generateRefreshToken(user);
+    const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
 
-//     res.json({
-//       message: 'Login realizado com sucesso',
-//       user,
-//       token,
-//       refreshToken
-//     });
-//   } catch (error) {
-//     console.error('Erro ao realizar login:', error);
-//     const { status, message } = handleDatabaseError(error);
-//     res.status(status).json({
-//       error: message,
-//       timestamp: new Date().toISOString(),
-//       path: req.path
-//     });
-//   }
-// };
+    res.json({
+      message: 'Login realizado com sucesso',
+      user,
+      token,
+      refreshToken
+    });
+  } catch (error) {
+    console.error('Erro ao realizar login:', error);
+    const { status, message } = handleDatabaseError(error);
+    res.status(status).json({
+      error: message,
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+};
 
 const refreshToken = async (req, res) => {
   try {
