@@ -8,7 +8,8 @@ const generateToken = (user) => {
     {
       id: user.id,
       username: user.username,
-      email: user.email
+      email: user.email,
+      role: user.role
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
@@ -55,6 +56,7 @@ const getAllUsers = async (req, res) => {
         last_name,
         username,
         email,
+        role,
         status,
         email_verified,
         created_at
@@ -115,6 +117,7 @@ const getUserById = async (req, res) => {
         last_name,
         username,
         email,
+        role,
         phone,
         date_of_birth,
         gender,
@@ -172,6 +175,7 @@ const createUser = async (req, res) => {
       username,
       email,
       password,
+      role,
       phone,
       date_of_birth,
       gender
@@ -233,6 +237,15 @@ const createUser = async (req, res) => {
       });
     }
 
+    if (role && !['admin', 'user'].includes(role)) {
+      return res.status(400).json({
+        error: 'Role inválido',
+        message: 'Role deve ser: admin ou user',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
     // Verificar se username ou email já existem
     const existingUser = await pool.query(
       'SELECT username, email FROM users WHERE username = $1 OR email = $2',
@@ -265,22 +278,24 @@ const createUser = async (req, res) => {
         username,
         email,
         password_hash,
+        role,
         phone,
         date_of_birth,
         gender
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING
         id,
         first_name,
         last_name,
         username,
         email,
+        role,
         phone,
         date_of_birth,
         gender,
         status,
         created_at
-    `, [first_name, last_name, username, email, password_hash, phone, date_of_birth, gender]);
+    `, [first_name, last_name, username, email, password_hash, role, phone, date_of_birth, gender]);
 
     res.status(201).json({
       message: 'Usuário criado com sucesso',
@@ -454,7 +469,7 @@ const login = async (req, res) => {
     // Buscar usuário por username ou email
     const result = await pool.query(
       `SELECT id, first_name, last_name, username, email, password_hash,
-              status, email_verified, login_attempts, locked_until
+              role, status, email_verified, login_attempts, locked_until
        FROM users
        WHERE (username = $1 OR email = $1) AND deleted_at IS NULL`,
       [login]
@@ -603,7 +618,7 @@ const refreshToken = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, first_name, last_name, username, email, phone,
+      `SELECT id, first_name, last_name, username, email, role, phone,
               date_of_birth, gender, profile_image_url, bio, status,
               email_verified, phone_verified, two_factor_enabled,
               preferred_language, timezone, last_login_at, created_at

@@ -14,7 +14,7 @@ Uma API RESTful construída com Node.js, Express, autenticação JWT, Jest para 
 npm run docker:up
 
 # Inicializar o banco de dados e criar usuário admin
-npm run docker:init-db
+npm run init-db
 ```
 
 A aplicação estará disponível em:
@@ -70,12 +70,20 @@ npm run init-db
 - `npm run test:watch` - Executa os testes em modo watch
 - `npm run init-db` - Inicializa o banco de dados
 
+### Migrations
+- `npm run migrate:up` - Executa todas as migrations pendentes
+- `npm run migrate:down` - Reverte a última migration executada
+- `npm run migrate:status` - Mostra o status de todas as migrations
+
 ### Docker
 - `npm run docker:build` - Constrói as imagens Docker
 - `npm run docker:up` - Inicia todos os serviços
 - `npm run docker:down` - Para todos os serviços
 - `npm run docker:logs` - Visualiza logs dos containers
 - `npm run docker:init-db` - Inicializa banco no container
+- `npm run docker:migrate:up` - Executa migrations no container
+- `npm run docker:migrate:down` - Reverte migration no container
+- `npm run docker:migrate:status` - Status das migrations no container
 - `npm run docker:dev` - Desenvolvimento com rebuild automático
 
 ## 🌐 Endpoints da API
@@ -109,8 +117,22 @@ O sistema cria automaticamente um usuário administrador:
 - **Email:** admin@sistema.com
 - **Username:** admin
 - **Senha:** admin123
+- **Role:** admin
 
 ⚠️ **IMPORTANTE:** Altere a senha após o primeiro login!
+
+## 🔑 Sistema de Roles
+
+O sistema implementa controle de acesso baseado em roles:
+
+### Roles Disponíveis
+- **admin** - Acesso total ao sistema
+- **user** - Usuário padrão com permissões básicas
+
+### Como funciona
+- Todos os novos usuários recebem automaticamente a role `user`
+- A role é incluída no JWT token e pode ser usada para autorização
+- Para criar um admin, especifique `"role": "admin"` no body do POST
 
 ## 📁 Estrutura do Projeto
 
@@ -119,13 +141,14 @@ src/
 ├── config/          # Configurações (banco de dados, inicialização)
 ├── controllers/     # Controladores das rotas (userController com JWT)
 ├── middleware/      # Middlewares (auth JWT, errorHandler)
+├── migrations/      # Migrations do banco de dados
 ├── models/          # Modelos (futura implementação)
 ├── routes/          # Definição das rotas (userRoutes)
 ├── utils/           # Utilitários
 ├── app.js          # Configuração do Express
 └── server.js       # Inicialização do servidor
 __tests__/          # Testes Jest
-scripts/            # Scripts utilitários (init-db)
+scripts/            # Scripts utilitários (init-db, migrate)
 .vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
 docker-compose.yml  # Orquestração dos serviços
@@ -142,8 +165,9 @@ A tabela `users` possui uma estrutura completa com os seguintes campos:
 - `username` - Nome de usuário único (VARCHAR 30)
 - `email` - Email único (VARCHAR 100)
 
-### Segurança
+### Segurança e Controle de Acesso
 - `password_hash` - Hash da senha (VARCHAR 255)
+- `role` - Role do usuário (admin/user) (VARCHAR 20)
 - `email_verified` - Email verificado (BOOLEAN)
 - `phone_verified` - Telefone verificado (BOOLEAN)
 - `two_factor_enabled` - 2FA habilitado (BOOLEAN)
@@ -213,21 +237,61 @@ npm run docker:logs
 
 - ✅ Hash de senhas com bcrypt
 - ✅ Autenticação JWT (access + refresh tokens)
+- ✅ Sistema de roles (admin/user)
 - ✅ Proteção contra brute force (bloqueio após 5 tentativas)
 - ✅ Validação de entrada de dados
 - ✅ Soft delete de usuários
 - ✅ Tokens com expiração configurável
 - ✅ Middleware de autenticação para rotas protegidas
 
+## 🗃️ Sistema de Migrations
+
+O projeto inclui um sistema completo de migrations para gerenciar mudanças no banco de dados:
+
+### Características
+- ✅ Controle de versão do banco de dados
+- ✅ Rastreamento de migrations executadas
+- ✅ Suporte a rollback (reverter migrations)
+- ✅ Tabela `migrations` para controle
+- ✅ Comandos simples via npm scripts
+
+### Criar uma nova migration
+1. Crie um arquivo em `src/migrations/` seguindo o padrão: `XXX_descricao.js`
+2. Implemente as funções `up()` e `down()`
+3. Execute com `npm run migrate:up`
+
+### Exemplo de migration
+```javascript
+const pool = require('../config/database');
+
+const up = async () => {
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN new_field VARCHAR(100)
+  `);
+};
+
+const down = async () => {
+  await pool.query(`
+    ALTER TABLE users
+    DROP COLUMN new_field
+  `);
+};
+
+module.exports = { up, down };
+```
+
 ## 🚀 Próximos Passos
 
 1. ~~Implementar autenticação JWT~~ ✅
 2. ~~Adicionar middleware de autorização~~ ✅
 3. ~~Criar endpoints de login/logout~~ ✅
-4. Implementar reset de senha por email
-5. Implementar verificação de email
-6. Adicionar upload de imagem de perfil
-7. Implementar sistema de roles (admin, user)
-8. Documentar API com Swagger
-9. Adicionar rate limiting
-10. Implementar 2FA (Two-Factor Authentication)
+4. ~~Implementar sistema de roles (admin, user)~~ ✅
+5. ~~Sistema de migrations~~ ✅
+6. Implementar middleware de autorização por role
+7. Implementar reset de senha por email
+8. Implementar verificação de email
+9. Adicionar upload de imagem de perfil
+10. Documentar API com Swagger
+11. Adicionar rate limiting
+12. Implementar 2FA (Two-Factor Authentication)
