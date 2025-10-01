@@ -21,6 +21,8 @@ const passwordResetEmail = (name, resetUrl) => {
           max-width: 600px;
           margin: 0 auto;
           padding: 20px;
+          max-width: 720px;
+          margin: auto;
         }
         .container {
           background-color: #f9f9f9;

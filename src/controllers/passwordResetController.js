@@ -42,9 +42,10 @@ const requestPasswordReset = async (req, res) => {
     const { token, hashedToken, expiresAt } = generatePasswordResetToken(30); // 30 minutos
 
     // Salvar token hasheado no banco
+    // Important: Convert Date to ISO string to ensure proper timezone handling in PostgreSQL
     await pool.query(
       'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
-      [hashedToken, expiresAt, user.id]
+      [hashedToken, expiresAt.toISOString(), user.id]
     );
 
     // Criar URL de reset
@@ -60,17 +61,21 @@ const requestPasswordReset = async (req, res) => {
       text: emailTemplate.text
     });
 
-    res.status(200).json({
-      message: 'Se o email existir em nossa base, você receberá instruções para redefinir sua senha',
-      // Em desenvolvimento, retornar o token
-      ...(process.env.NODE_ENV !== 'production' && {
-        debug: {
-          token,
-          resetUrl,
-          expiresAt
-        }
-      })
-    });
+    // IMPORTANTE: Garantir que estamos retornando o token ORIGINAL
+    const responseObj = {
+      message: 'Se o email existir em nossa base, você receberá instruções para redefinir sua senha'
+    };
+
+    if (process.env.NODE_ENV !== 'production') {
+      responseObj.debug = {
+        token: token, // Token ORIGINAL (não hasheado)
+        tokenType: 'ORIGINAL_TOKEN',
+        resetUrl,
+        expiresAt
+      };
+    }
+
+    res.status(200).json(responseObj);
 
   } catch (error) {
     console.error('Erro ao solicitar reset de senha:', error);
@@ -95,10 +100,11 @@ const validateResetToken = async (req, res) => {
 
     // Buscar usuário com o token válido
     const result = await pool.query(
-      `SELECT id, email FROM users
-       WHERE password_reset_token = $1
-       AND password_reset_expires > NOW()
-       AND status = 'active'`,
+      `SELECT id, email, password_reset_token, password_reset_expires, status
+       FROM users
+        WHERE password_reset_token = $1
+        AND password_reset_expires > CURRENT_TIMESTAMP
+        AND status = 'active'`,
       [hashedToken]
     );
 
@@ -147,7 +153,7 @@ const resetPassword = async (req, res) => {
     const result = await pool.query(
       `SELECT id, email, first_name FROM users
        WHERE password_reset_token = $1
-       AND password_reset_expires > NOW()
+       AND password_reset_expires > CURRENT_TIMESTAMP
        AND status = 'active'`,
       [hashedToken]
     );
