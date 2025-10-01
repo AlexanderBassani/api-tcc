@@ -1,12 +1,24 @@
+# Database Configuration
 DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=password
 DB_NAME=api_db
 DB_PORT=5432
+
+# Server Configuration
 PORT=3000
+NODE_ENV=development
 
 # JWT Configuration
 JWT_SECRET=your-secret-key-change-this-in-production
 JWT_EXPIRES_IN=24h
 JWT_REFRESH_SECRET=your-refresh-secret-key-change-this-in-production
 JWT_REFRESH_EXPIRES_IN=7d
+
+# Email Configuration (Password Reset)
+EMAIL_FROM=noreply@api.com
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+
+# Frontend URL (for password reset links)
+FRONTEND_URL=http://localhost:3000

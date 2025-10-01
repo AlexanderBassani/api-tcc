@@ -1,5 +1,6 @@
 const express = require('express');
 const userRoutes = require('./routes/userRoutes');
+const passwordResetRoutes = require('./routes/passwordReset');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 require('dotenv').config();
 
@@ -39,6 +40,7 @@ app.get('/health', (req, res) => {
 
 // Rotas da API
 app.use('/api', userRoutes);
+app.use('/api/password-reset', passwordResetRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

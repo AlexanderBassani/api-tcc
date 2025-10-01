@@ -38,21 +38,33 @@ npm install
 ```
 
 3. Configure as variáveis de ambiente no arquivo `.env`:
-```
+```env
+# Database Configuration
 DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=password
 DB_NAME=api_db
 DB_PORT=5432
+
+# Server Configuration
 PORT=3000
+NODE_ENV=development
 
 # JWT Configuration
 JWT_SECRET=your-secret-key-change-this-in-production
 JWT_EXPIRES_IN=24h
 JWT_REFRESH_SECRET=your-refresh-secret-key-change-this-in-production
 JWT_REFRESH_EXPIRES_IN=7d
+
+# Email Configuration (Password Reset)
+EMAIL_FROM=noreply@api.com
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+
+# Frontend URL (for password reset links)
+FRONTEND_URL=http://localhost:3000
 ```
-⚠️ **IMPORTANTE:** Altere as chaves JWT em produção!
+⚠️ **IMPORTANTE:** Altere as chaves JWT e configurações de email em produção!
 
 4. Certifique-se de que o PostgreSQL está rodando e crie o banco de dados `api_db`
 5. Inicialize o banco de dados:
@@ -97,13 +109,19 @@ npm run init-db
 - `POST /api/users/login` - Login com username/email e senha (retorna JWT)
 - `POST /api/users/refresh-token` - Renovar token de acesso
 
+### Recuperação de Senha (Público)
+- `POST /api/password-reset/request` - Solicitar reset de senha (envia email)
+- `POST /api/password-reset/validate-token` - Validar token de reset
+- `POST /api/password-reset/reset` - Redefinir senha com token
+
 ### Usuários (Requer autenticação JWT)
 - `GET /api/users` - Lista todos os usuários
 - `GET /api/users/profile` - Ver perfil do usuário autenticado
 - `GET /api/users/:id` - Buscar usuário por ID
 - `POST /api/users` - Criar novo usuário (admin)
 - `PUT /api/users/profile` - Atualizar perfil do usuário autenticado
-- `POST /api/users/change-password` - Alterar senha do usuário autenticado
+- `PUT /api/users/change-password` - Alterar senha (usuário logado)
+- `PUT /api/users/:id/change-password` - Alterar senha de outro usuário (admin)
 
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
@@ -138,13 +156,25 @@ O sistema implementa controle de acesso baseado em roles:
 
 ```
 src/
-├── config/          # Configurações (banco de dados, inicialização)
-├── controllers/     # Controladores das rotas (userController com JWT)
-├── middleware/      # Middlewares (auth JWT, errorHandler)
-├── migrations/      # Migrations do banco de dados
-├── models/          # Modelos (futura implementação)
-├── routes/          # Definição das rotas (userRoutes)
+├── config/          # Configurações
+│   ├── database.js      # Conexão PostgreSQL
+│   ├── email.js         # Configuração de email (nodemailer)
+│   └── initDb.js        # Inicialização do banco
+├── controllers/     # Controladores
+│   ├── userController.js        # CRUD de usuários + auth
+│   └── passwordResetController.js  # Reset de senha
+├── middleware/      # Middlewares
+│   ├── auth.js          # Autenticação JWT
+│   └── errorHandler.js  # Tratamento de erros
+├── migrations/      # Migrations do banco
+├── routes/          # Rotas da API
+│   ├── userRoutes.js       # Rotas de usuários
+│   └── passwordReset.js    # Rotas de reset de senha
+├── templates/       # Templates de email
+│   └── passwordResetEmail.js  # Template de reset de senha
 ├── utils/           # Utilitários
+│   ├── responses.js     # Respostas padronizadas
+│   └── tokenGenerator.js  # Geração de tokens seguros
 ├── app.js          # Configuração do Express
 └── server.js       # Inicialização do servidor
 __tests__/          # Testes Jest
@@ -173,8 +203,10 @@ A tabela `users` possui uma estrutura completa com os seguintes campos:
 - `two_factor_enabled` - 2FA habilitado (BOOLEAN)
 - `login_attempts` - Tentativas de login (INTEGER)
 - `locked_until` - Bloqueado até (TIMESTAMP)
-- `password_reset_token` - Token reset senha (VARCHAR 255)
+- `password_reset_token` - Token reset senha hasheado (VARCHAR 255)
+- `password_reset_expires` - Expiração do token reset (TIMESTAMP)
 - `email_verification_token` - Token verificação email (VARCHAR 255)
+- `email_verification_expires` - Expiração do token verificação (TIMESTAMP)
 
 ### Perfil
 - `phone` - Telefone (VARCHAR 20)
@@ -208,9 +240,10 @@ O projeto inclui os seguintes serviços:
 ## 🔧 Tecnologias Utilizadas
 
 - **Backend:** Node.js, Express
-- **Banco:** PostgreSQL
+- **Banco:** PostgreSQL, pg (driver)
 - **Autenticação:** JWT (jsonwebtoken)
 - **Segurança:** bcrypt/bcryptjs para hash de senhas
+- **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
 - **Infraestrutura:** Docker, Docker Compose
 - **Desenvolvimento:** nodemon (hot-reload), dotenv
@@ -235,14 +268,17 @@ npm run docker:logs
 
 ## 🔐 Segurança Implementada
 
-- ✅ Hash de senhas com bcrypt
+- ✅ Hash de senhas com bcrypt (salt rounds: 10)
 - ✅ Autenticação JWT (access + refresh tokens)
 - ✅ Sistema de roles (admin/user)
-- ✅ Proteção contra brute force (bloqueio após 5 tentativas)
+- ✅ Proteção contra brute force (bloqueio após 5 tentativas por 15 minutos)
 - ✅ Validação de entrada de dados
 - ✅ Soft delete de usuários
-- ✅ Tokens com expiração configurável
+- ✅ Tokens JWT com expiração configurável
+- ✅ Tokens de reset de senha hasheados (SHA256)
+- ✅ Tokens de reset com expiração (30 minutos)
 - ✅ Middleware de autenticação para rotas protegidas
+- ✅ Proteção contra enumeração de usuários (mensagens genéricas)
 
 ## 🗃️ Sistema de Migrations
 
@@ -281,6 +317,38 @@ const down = async () => {
 module.exports = { up, down };
 ```
 
+## 📧 Sistema de Reset de Senha
+
+O sistema implementa recuperação de senha via email com segurança robusta:
+
+### Funcionalidades
+- ✅ Envio de email com link de reset
+- ✅ Tokens seguros hasheados (SHA256)
+- ✅ Expiração de tokens (30 minutos)
+- ✅ Uso único de tokens
+- ✅ Template HTML responsivo
+- ✅ Suporte a Ethereal (dev) e SMTP (prod)
+
+### Fluxo de Uso
+1. **Solicitar reset:** `POST /api/password-reset/request` com `{ "email": "..." }`
+2. **Receber email** com link e token
+3. **Redefinir senha:** `POST /api/password-reset/reset` com `{ "token": "...", "newPassword": "..." }`
+
+### Configuração de Email
+
+#### Desenvolvimento (Ethereal - Teste)
+O sistema usa automaticamente o Ethereal Email para testes. O link de preview aparece no console.
+
+#### Produção (Gmail)
+1. Ative verificação em duas etapas no Google
+2. Gere senha de aplicativo: https://myaccount.google.com/apppasswords
+3. Configure no `.env`:
+```env
+NODE_ENV=production
+EMAIL_USER=seu-email@gmail.com
+EMAIL_PASSWORD=sua-senha-de-aplicativo
+```
+
 ## 🚀 Próximos Passos
 
 1. ~~Implementar autenticação JWT~~ ✅
@@ -288,8 +356,8 @@ module.exports = { up, down };
 3. ~~Criar endpoints de login/logout~~ ✅
 4. ~~Implementar sistema de roles (admin, user)~~ ✅
 5. ~~Sistema de migrations~~ ✅
-6. Implementar middleware de autorização por role
-7. Implementar reset de senha por email
+6. ~~Implementar reset de senha por email~~ ✅
+7. Implementar middleware de autorização por role
 8. Implementar verificação de email
 9. Adicionar upload de imagem de perfil
 10. Documentar API com Swagger

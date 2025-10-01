@@ -469,9 +469,9 @@ const login = async (req, res) => {
     // Buscar usuário por username ou email
     const result = await pool.query(
       `SELECT id, first_name, last_name, username, email, password_hash,
-              role, status, email_verified, login_attempts, locked_until
-       FROM users
-       WHERE (username = $1 OR email = $1) AND deleted_at IS NULL`,
+                role, status, email_verified, login_attempts, locked_until
+        FROM users
+        WHERE (username = $1 OR email = $1) AND deleted_at IS NULL`,
       [login]
     );
 
