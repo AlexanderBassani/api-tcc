@@ -1,4 +1,6 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
 const passwordResetRoutes = require('./routes/passwordReset');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -36,6 +38,37 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
+});
+
+// Swagger Documentation - Dynamic server detection
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', (req, res, next) => {
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const currentServer = `${protocol}://${host}`;
+
+  // Create a copy of swaggerSpec with dynamic server
+  const dynamicSwaggerSpec = {
+    ...swaggerSpec,
+    servers: [
+      {
+        url: currentServer,
+        description: 'Current server'
+      },
+      ...swaggerSpec.servers.filter(server => server.url !== currentServer)
+    ]
+  };
+
+  swaggerUi.setup(dynamicSwaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'API Documentation'
+  })(req, res, next);
+});
+
+// Swagger JSON endpoint
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
 });
 
 // Rotas da API

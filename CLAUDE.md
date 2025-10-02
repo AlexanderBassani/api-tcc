@@ -74,16 +74,37 @@ O projeto usa PostgreSQL com as seguintes configurações padrão no `.env`:
 Este projeto atualmente não possui comandos de lint ou typecheck configurados.
 Se necessário, adicionar eslint ou outras ferramentas de qualidade de código.
 
+## Documentação da API (Swagger)
+
+A documentação completa da API está disponível através do Swagger UI:
+- **Swagger UI**: http://localhost:3000/api-docs
+- **Swagger JSON**: http://localhost:3000/api-docs.json
+- **Docker**: http://localhost:3001/api-docs
+
 ## Endpoints Disponíveis
 
 ### Básicos
 - `GET /` - Mensagem de boas-vindas
 - `GET /health` - Status da API
 
-### Usuários
+### Autenticação
+- `POST /api/users/register` - Registrar novo usuário
+- `POST /api/users/login` - Login
+- `POST /api/users/refresh-token` - Renovar token
+
+### Usuários (Autenticados)
 - `GET /api/users` - Lista todos os usuários
+- `GET /api/users/profile` - Perfil do usuário atual
 - `GET /api/users/:id` - Busca usuário por ID
-- `POST /api/users` - Cria novo usuário (requer name e email no body)
+- `POST /api/users` - Cria novo usuário
+- `PUT /api/users/profile` - Atualizar perfil
+- `PUT /api/users/change-password` - Trocar própria senha
+- `PUT /api/users/:id/change-password` - Trocar senha de outro usuário (admin)
+
+### Recuperação de Senha
+- `POST /api/password-reset/request` - Solicitar reset de senha
+- `POST /api/password-reset/validate-token` - Validar token de reset
+- `POST /api/password-reset/reset` - Redefinir senha
 
 ## Notas para Desenvolvimento
 
