@@ -59,6 +59,11 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **Supertest** - Testes de API
 - **dotenv** - Gerenciamento de variáveis de ambiente
 - **pg** - Driver PostgreSQL para Node.js
+- **cors** - Middleware para Cross-Origin Resource Sharing
+- **jsonwebtoken** - Autenticação JWT
+- **bcryptjs** - Hash de senhas
+- **nodemailer** - Envio de emails
+- **swagger** - Documentação da API
 
 ## Configuração do Banco
 
@@ -68,6 +73,21 @@ O projeto usa PostgreSQL com as seguintes configurações padrão no `.env`:
 - Banco: api_db
 - Usuário: postgres
 - Senha: password
+
+## Configuração CORS
+
+O sistema possui configuração CORS flexível:
+- **Desenvolvimento**: Permite todas as origens por padrão
+- **Produção**: Restringe às origens configuradas em `CORS_ALLOWED_ORIGINS`
+- **Credenciais**: Suporta cookies e headers de autenticação
+- **Métodos**: GET, POST, PUT, DELETE, PATCH, OPTIONS
+- **Headers**: Content-Type, Authorization, X-Requested-With
+- **Cache Preflight**: 24 horas
+
+Configuração no `.env`:
+```bash
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:3001
+```
 
 ## Comandos de Lint/TypeCheck
 

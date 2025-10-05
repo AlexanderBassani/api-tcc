@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
@@ -7,6 +8,40 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 require('dotenv').config();
 
 const app = express();
+
+// Configuração CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permite requisições sem origin (mobile apps, Postman, etc)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Lista de origens permitidas
+    const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : ['http://localhost:3000', 'http://localhost:3001'];
+
+    // Permite todas as origens em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+
+    // Verifica se a origem está na lista de permitidas
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Permite envio de cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // Cache de preflight por 24 horas
+};
+
+app.use(cors(corsOptions));
 
 // Middleware para parsing JSON com limite de tamanho
 app.use(express.json({ limit: '10mb' }));
