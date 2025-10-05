@@ -813,6 +813,23 @@ const changePassword = async (req, res) => {
   }
 };
 
+const logout = async (req, res) => {
+  try {
+    // Logout simples - apenas retorna mensagem de sucesso
+    // No lado do cliente, o token deve ser removido
+    res.json({
+      message: 'Logout realizado com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao realizar logout:', error);
+    res.status(500).json({
+      error: 'Erro ao realizar logout',
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -822,5 +839,6 @@ module.exports = {
   refreshToken,
   getProfile,
   updateProfile,
-  changePassword
+  changePassword,
+  logout
 };

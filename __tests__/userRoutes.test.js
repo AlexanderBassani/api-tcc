@@ -515,4 +515,55 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('POST /api/users/logout (Protected)', () => {
+    test('Should logout successfully with valid token', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Logout', 'Test', 'logout_test', 'logout.test@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'logout_test',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .post('/api/users/logout')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message', 'Logout realizado com sucesso');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['logout_test']);
+    });
+
+    test('Should fail logout without token', async () => {
+      const response = await request(app)
+        .post('/api/users/logout');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toContain('Token');
+    });
+
+    test('Should fail logout with invalid token', async () => {
+      const response = await request(app)
+        .post('/api/users/logout')
+        .set('Authorization', 'Bearer invalid-token-xyz');
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
 });

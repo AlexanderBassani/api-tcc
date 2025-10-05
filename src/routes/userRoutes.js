@@ -8,7 +8,8 @@ const {
     refreshToken,
     getProfile,
     updateProfile,
-    changePassword
+    changePassword,
+    logout
 } = require('../controllers/userController');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -294,5 +295,29 @@ router.put('/users/change-password', authenticateToken, changePassword);
  *         description: Forbidden
  */
 router.put('/users/:id/change-password', authenticateToken, changePassword);
+
+/**
+ * @swagger
+ * /api/users/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Logout realizado com sucesso
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/users/logout', authenticateToken, logout);
 
 module.exports = router;

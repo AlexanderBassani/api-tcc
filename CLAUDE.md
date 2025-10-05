@@ -90,6 +90,7 @@ A documentação completa da API está disponível através do Swagger UI:
 ### Autenticação
 - `POST /api/users/register` - Registrar novo usuário
 - `POST /api/users/login` - Login
+- `POST /api/users/logout` - Logout (autenticado)
 - `POST /api/users/refresh-token` - Renovar token
 
 ### Usuários (Autenticados)
