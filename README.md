@@ -61,8 +61,15 @@ EMAIL_FROM=noreply@api.com
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-app-password
 
-# Frontend URL (for password reset links)
+# Frontend URL (for password reset links and CORS)
 FRONTEND_URL=http://localhost:3000
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:3001
+
+# Request Body Size Limits
+JSON_LIMIT=10mb
+URL_ENCODED_LIMIT=10mb
 ```
 ⚠️ **IMPORTANTE:** Altere as chaves JWT e configurações de email em produção!
 

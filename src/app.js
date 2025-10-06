@@ -43,9 +43,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Middleware para parsing JSON com limite de tamanho
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Middleware para parsing JSON com limite de tamanho configurável
+const jsonLimit = process.env.JSON_LIMIT || '10mb';
+const urlEncodedLimit = process.env.URL_ENCODED_LIMIT || '10mb';
+
+app.use(express.json({ limit: jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: urlEncodedLimit }));
 
 // Middleware para logging de requisições em desenvolvimento
 if (process.env.NODE_ENV === 'development') {

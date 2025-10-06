@@ -89,6 +89,21 @@ Configuração no `.env`:
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:3001
 ```
 
+## Configuração de Limites de Requisição
+
+O sistema permite configurar limites de tamanho para requisições:
+
+Configuração no `.env`:
+```bash
+# Limites de tamanho do body
+JSON_LIMIT=10mb              # Limite para parsing JSON
+URL_ENCODED_LIMIT=10mb       # Limite para dados URL-encoded
+```
+
+Valores padrão (se não configurados):
+- JSON: 10mb
+- URL-encoded: 10mb
+
 ## Comandos de Lint/TypeCheck
 
 Este projeto atualmente não possui comandos de lint ou typecheck configurados.
