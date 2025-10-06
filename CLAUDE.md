@@ -117,15 +117,55 @@ A documentação completa da API está disponível através do Swagger UI:
 - `GET /api/users` - Lista todos os usuários
 - `GET /api/users/profile` - Perfil do usuário atual
 - `GET /api/users/:id` - Busca usuário por ID
-- `POST /api/users` - Cria novo usuário
+- `POST /api/users` - Cria novo usuário **(admin only)**
 - `PUT /api/users/profile` - Atualizar perfil
 - `PUT /api/users/change-password` - Trocar própria senha
 - `PUT /api/users/:id/change-password` - Trocar senha de outro usuário (admin)
+- `PATCH /api/users/:id/deactivate` - Inativar usuário **(admin only)**
+- `DELETE /api/users/:id` - Excluir usuário (soft delete) **(admin only)**
+- `DELETE /api/users/:id?hardDelete=true` - Excluir usuário permanentemente **(admin only)**
 
 ### Recuperação de Senha
 - `POST /api/password-reset/request` - Solicitar reset de senha
 - `POST /api/password-reset/validate-token` - Validar token de reset
 - `POST /api/password-reset/reset` - Redefinir senha
+
+## Sistema de Autorização (RBAC)
+
+O projeto implementa controle de acesso baseado em roles (RBAC - Role-Based Access Control):
+
+### Middleware de Autorização
+```javascript
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+
+// Apenas admin
+router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), deleteUser);
+
+// Admin ou moderador
+router.post('/posts', authenticateToken, authorizeRoles('admin', 'moderator'), createPost);
+```
+
+### Roles Disponíveis
+- **admin** - Acesso total ao sistema
+- **user** - Usuário padrão com permissões básicas
+
+### Rotas Protegidas (Admin Only)
+- Criar usuário (POST /api/users)
+- Inativar usuário (PATCH /api/users/:id/deactivate)
+- Excluir usuário (DELETE /api/users/:id)
+
+### Mensagens de Erro
+O middleware retorna mensagens detalhadas em caso de acesso negado:
+```json
+{
+  "error": "Acesso negado",
+  "message": "Esta ação requer uma das seguintes permissões: admin",
+  "required_roles": ["admin"],
+  "user_role": "user",
+  "timestamp": "2025-01-10T12:00:00.000Z",
+  "path": "/api/users"
+}
+```
 
 ## Notas para Desenvolvimento
 

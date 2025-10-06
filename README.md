@@ -118,10 +118,13 @@ npm run init-db
 - `GET /api/users` - Lista todos os usuários
 - `GET /api/users/profile` - Ver perfil do usuário autenticado
 - `GET /api/users/:id` - Buscar usuário por ID
-- `POST /api/users` - Criar novo usuário (admin)
+- `POST /api/users` - Criar novo usuário **(admin only)**
 - `PUT /api/users/profile` - Atualizar perfil do usuário autenticado
 - `PUT /api/users/change-password` - Alterar senha (usuário logado)
 - `PUT /api/users/:id/change-password` - Alterar senha de outro usuário (admin)
+- `PATCH /api/users/:id/deactivate` - Inativar usuário **(admin only)**
+- `DELETE /api/users/:id` - Excluir usuário (soft delete) **(admin only)**
+- `DELETE /api/users/:id?hardDelete=true` - Excluir usuário permanentemente **(admin only)**
 
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
@@ -139,9 +142,9 @@ O sistema cria automaticamente um usuário administrador:
 
 ⚠️ **IMPORTANTE:** Altere a senha após o primeiro login!
 
-## 🔑 Sistema de Roles
+## 🔑 Sistema de Roles e Autorização (RBAC)
 
-O sistema implementa controle de acesso baseado em roles:
+O sistema implementa controle de acesso baseado em roles (RBAC - Role-Based Access Control):
 
 ### Roles Disponíveis
 - **admin** - Acesso total ao sistema
@@ -151,6 +154,39 @@ O sistema implementa controle de acesso baseado em roles:
 - Todos os novos usuários recebem automaticamente a role `user`
 - A role é incluída no JWT token e pode ser usada para autorização
 - Para criar um admin, especifique `"role": "admin"` no body do POST
+
+### Middleware de Autorização
+O projeto utiliza o middleware `authorizeRoles()` para proteger rotas:
+
+```javascript
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+
+// Apenas admin pode acessar
+router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), deleteUser);
+
+// Admin ou moderador podem acessar
+router.post('/posts', authenticateToken, authorizeRoles('admin', 'moderator'), createPost);
+```
+
+### Rotas Protegidas (Admin Only)
+As seguintes rotas requerem role de admin:
+- ✅ **POST /api/users** - Criar novo usuário
+- ✅ **PATCH /api/users/:id/deactivate** - Inativar usuário
+- ✅ **DELETE /api/users/:id** - Excluir usuário (soft/hard delete)
+
+### Mensagens de Erro
+Quando um usuário sem permissão tenta acessar uma rota protegida:
+
+```json
+{
+  "error": "Acesso negado",
+  "message": "Esta ação requer uma das seguintes permissões: admin",
+  "required_roles": ["admin"],
+  "user_role": "user",
+  "timestamp": "2025-01-10T12:00:00.000Z",
+  "path": "/api/users"
+}
+```
 
 ## 📁 Estrutura do Projeto
 
@@ -271,6 +307,7 @@ npm run docker:logs
 - ✅ Hash de senhas com bcrypt (salt rounds: 10)
 - ✅ Autenticação JWT (access + refresh tokens)
 - ✅ Sistema de roles (admin/user)
+- ✅ **Middleware de autorização por role (RBAC)**
 - ✅ Proteção contra brute force (bloqueio após 5 tentativas por 15 minutos)
 - ✅ Validação de entrada de dados
 - ✅ Soft delete de usuários
@@ -279,6 +316,7 @@ npm run docker:logs
 - ✅ Tokens de reset com expiração (30 minutos)
 - ✅ Middleware de autenticação para rotas protegidas
 - ✅ Proteção contra enumeração de usuários (mensagens genéricas)
+- ✅ Hard delete para remoção permanente de usuários (admin only)
 
 ## 🗃️ Sistema de Migrations
 
@@ -357,9 +395,11 @@ EMAIL_PASSWORD=sua-senha-de-aplicativo
 4. ~~Implementar sistema de roles (admin, user)~~ ✅
 5. ~~Sistema de migrations~~ ✅
 6. ~~Implementar reset de senha por email~~ ✅
-7. Implementar middleware de autorização por role
-8. Implementar verificação de email
-9. Adicionar upload de imagem de perfil
-10. Documentar API com Swagger
-11. Adicionar rate limiting
-12. Implementar 2FA (Two-Factor Authentication)
+7. ~~Implementar middleware de autorização por role (RBAC)~~ ✅
+8. ~~Implementar endpoints de exclusão e inativação de usuários~~ ✅
+9. ~~Documentar API com Swagger~~ ✅
+10. Implementar verificação de email
+11. Adicionar upload de imagem de perfil
+12. Adicionar rate limiting
+13. Implementar 2FA (Two-Factor Authentication)
+14. Adicionar logs de auditoria
