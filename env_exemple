@@ -22,3 +22,9 @@ EMAIL_PASSWORD=your-app-password
 
 # Frontend URL (for password reset links)
 FRONTEND_URL=http://localhost:3000
+
+# CORS Configuration
+# Lista de origens permitidas separadas por vírgula
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:3001
+# Permitir todas as origens em desenvolvimento (use com cuidado)
+CORS_ALLOW_ALL=false
