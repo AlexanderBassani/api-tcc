@@ -13,7 +13,7 @@ const {
     deactivateUser,
     deleteUser
 } = require('../controllers/userController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -182,7 +182,7 @@ router.get('/users/:id', authenticateToken, getUserById);
  * @swagger
  * /api/users:
  *   post:
- *     summary: Create a new user (admin)
+ *     summary: Create a new user (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -208,10 +208,12 @@ router.get('/users/:id', authenticateToken, getUserById);
  *         description: Bad request
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
  *       409:
  *         description: Username or email already exists
  */
-router.post('/users', authenticateToken, createUser);
+router.post('/users', authenticateToken, authorizeRoles('admin'), createUser);
 
 /**
  * @swagger
@@ -326,7 +328,7 @@ router.post('/users/logout', authenticateToken, logout);
  * @swagger
  * /api/users/{id}/deactivate:
  *   patch:
- *     summary: Deactivate user (set status to inactive)
+ *     summary: Deactivate user (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -369,14 +371,16 @@ router.post('/users/logout', authenticateToken, logout);
  *         description: User not found
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
  */
-router.patch('/users/:id/deactivate', authenticateToken, deactivateUser);
+router.patch('/users/:id/deactivate', authenticateToken, authorizeRoles('admin'), deactivateUser);
 
 /**
  * @swagger
  * /api/users/{id}:
  *   delete:
- *     summary: Delete user (soft delete by default, hard delete with query param)
+ *     summary: Delete user (admin only - soft delete by default, hard delete with query param)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -426,7 +430,9 @@ router.patch('/users/:id/deactivate', authenticateToken, deactivateUser);
  *         description: User not found
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
  */
-router.delete('/users/:id', authenticateToken, deleteUser);
+router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), deleteUser);
 
 module.exports = router;

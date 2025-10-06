@@ -568,7 +568,7 @@ describe('User Routes API', () => {
   });
 
   describe('PATCH /api/users/:id/deactivate (Protected)', () => {
-    test('Should deactivate user successfully', async () => {
+    test('Should deactivate user successfully with admin', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
@@ -582,11 +582,19 @@ describe('User Routes API', () => {
 
       const userId = userResult.rows[0].id;
 
-      // Fazer login para obter token
+      // Criar admin para obter token
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Admin', 'Deactivate', 'admin_deactivate_test', 'admin.deactivate@test.com', hashedPassword, 'admin', 'active']
+      );
+
+      // Fazer login como admin para obter token
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'deactivate_test',
+          login: 'admin_deactivate_test',
           password: 'testpass123'
         });
 
@@ -604,6 +612,7 @@ describe('User Routes API', () => {
 
       // Limpar
       await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', ['admin_deactivate_test']);
     });
 
     test('Should fail to deactivate already inactive user', async () => {
@@ -620,12 +629,12 @@ describe('User Routes API', () => {
 
       const userId = userResult.rows[0].id;
 
-      // Criar outro usuário para obter token
+      // Criar admin para obter token
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'User', 'auth_deactivate', 'auth.deactivate@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'Admin', 'auth_deactivate', 'auth.deactivate@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -657,7 +666,7 @@ describe('User Routes API', () => {
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth2', 'User', 'auth_deactivate2', 'auth.deactivate2@test.com', hashedPassword, 'user', 'active']
+        ['Auth2', 'Admin', 'auth_deactivate2', 'auth.deactivate2@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -688,7 +697,7 @@ describe('User Routes API', () => {
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth3', 'User', 'auth_deactivate3', 'auth.deactivate3@test.com', hashedPassword, 'user', 'active']
+        ['Auth3', 'Admin', 'auth_deactivate3', 'auth.deactivate3@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -735,12 +744,12 @@ describe('User Routes API', () => {
 
       const userId = userResult.rows[0].id;
 
-      // Criar usuário para obter token
+      // Criar admin para obter token
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'Delete', 'auth_delete', 'auth.delete@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'Delete', 'auth_delete', 'auth.delete@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -786,12 +795,12 @@ describe('User Routes API', () => {
 
       const userId = userResult.rows[0].id;
 
-      // Criar usuário para obter token
+      // Criar admin para obter token
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'HardDelete', 'auth_harddelete', 'auth.harddelete@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'HardDelete', 'auth_harddelete', 'auth.harddelete@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -834,12 +843,12 @@ describe('User Routes API', () => {
 
       const userId = userResult.rows[0].id;
 
-      // Criar usuário para obter token
+      // Criar admin para obter token
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'AlreadyDeleted', 'auth_alreadydeleted', 'auth.alreadydeleted@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'AlreadyDeleted', 'auth_alreadydeleted', 'auth.alreadydeleted@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -871,7 +880,7 @@ describe('User Routes API', () => {
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'Nonexist', 'auth_nonexist', 'auth.nonexist@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'Nonexist', 'auth_nonexist', 'auth.nonexist@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
@@ -902,7 +911,7 @@ describe('User Routes API', () => {
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'InvalidId', 'auth_invalidid', 'auth.invalidid@test.com', hashedPassword, 'user', 'active']
+        ['Auth', 'InvalidId', 'auth_invalidid', 'auth.invalidid@test.com', hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
