@@ -566,4 +566,371 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('PATCH /api/users/:id/deactivate (Protected)', () => {
+    test('Should deactivate user successfully', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      // Criar usuário para deativar
+      const userResult = await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id`,
+        ['Deactivate', 'Test', 'deactivate_test', 'deactivate.test@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Fazer login para obter token
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'deactivate_test',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      // Deativar o usuário
+      const response = await request(app)
+        .patch(`/api/users/${userId}/deactivate`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message', 'Usuário inativado com sucesso');
+      expect(response.body.data.status).toBe('inactive');
+      expect(response.body.data.id).toBe(userId);
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    });
+
+    test('Should fail to deactivate already inactive user', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      // Criar usuário inativo
+      const userResult = await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id`,
+        ['Already', 'Inactive', 'inactive_test', 'inactive.test@test.com', hashedPassword, 'user', 'inactive']
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Criar outro usuário para obter token
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'User', 'auth_deactivate', 'auth.deactivate@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_deactivate',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .patch(`/api/users/${userId}/deactivate`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'Usuário já está inativo');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_deactivate']);
+    });
+
+    test('Should fail to deactivate non-existent user', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth2', 'User', 'auth_deactivate2', 'auth.deactivate2@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_deactivate2',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .patch('/api/users/999999/deactivate')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error', 'Usuário não encontrado');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_deactivate2']);
+    });
+
+    test('Should fail to deactivate with invalid ID', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth3', 'User', 'auth_deactivate3', 'auth.deactivate3@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_deactivate3',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .patch('/api/users/abc/deactivate')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'ID do usuário inválido');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_deactivate3']);
+    });
+
+    test('Should fail to deactivate without token', async () => {
+      const response = await request(app)
+        .patch('/api/users/1/deactivate');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('DELETE /api/users/:id (Protected)', () => {
+    test('Should soft delete user successfully', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      // Criar usuário para deletar
+      const userResult = await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id`,
+        ['Delete', 'Test', 'delete_test', 'delete.test@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Criar usuário para obter token
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'Delete', 'auth_delete', 'auth.delete@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_delete',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      // Soft delete do usuário
+      const response = await request(app)
+        .delete(`/api/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message', 'Usuário removido com sucesso (soft delete)');
+      expect(response.body.data).toHaveProperty('deleted_at');
+      expect(response.body.deleteType).toBe('soft');
+
+      // Verificar se foi soft deleted
+      const checkResult = await pool.query('SELECT deleted_at, status FROM users WHERE id = $1', [userId]);
+      expect(checkResult.rows[0].deleted_at).not.toBeNull();
+      expect(checkResult.rows[0].status).toBe('inactive');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_delete']);
+    });
+
+    test('Should hard delete user successfully', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      // Criar usuário para deletar
+      const userResult = await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id`,
+        ['HardDelete', 'Test', 'harddelete_test', 'harddelete.test@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Criar usuário para obter token
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'HardDelete', 'auth_harddelete', 'auth.harddelete@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_harddelete',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      // Hard delete do usuário
+      const response = await request(app)
+        .delete(`/api/users/${userId}?hardDelete=true`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message', 'Usuário removido permanentemente com sucesso');
+      expect(response.body.deleteType).toBe('hard');
+
+      // Verificar se foi hard deleted
+      const checkResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+      expect(checkResult.rows.length).toBe(0);
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_harddelete']);
+    });
+
+    test('Should fail to soft delete already deleted user', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      // Criar usuário já deletado
+      const userResult = await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status, deleted_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+          RETURNING id`,
+        ['Already', 'Deleted', 'alreadydeleted_test', 'alreadydeleted.test@test.com', hashedPassword, 'user', 'inactive']
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Criar usuário para obter token
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'AlreadyDeleted', 'auth_alreadydeleted', 'auth.alreadydeleted@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_alreadydeleted',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .delete(`/api/users/${userId}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'Usuário já foi removido');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_alreadydeleted']);
+    });
+
+    test('Should fail to delete non-existent user', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'Nonexist', 'auth_nonexist', 'auth.nonexist@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_nonexist',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .delete('/api/users/999999')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error', 'Usuário não encontrado');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_nonexist']);
+    });
+
+    test('Should fail to delete with invalid ID', async () => {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (username) DO NOTHING`,
+        ['Auth', 'InvalidId', 'auth_invalidid', 'auth.invalidid@test.com', hashedPassword, 'user', 'active']
+      );
+
+      const loginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: 'auth_invalidid',
+          password: 'testpass123'
+        });
+
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .delete('/api/users/xyz')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'ID do usuário inválido');
+
+      // Limpar
+      await pool.query('DELETE FROM users WHERE username = $1', ['auth_invalidid']);
+    });
+
+    test('Should fail to delete without token', async () => {
+      const response = await request(app)
+        .delete('/api/users/1');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
 });

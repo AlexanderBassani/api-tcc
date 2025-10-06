@@ -9,7 +9,9 @@ const {
     getProfile,
     updateProfile,
     changePassword,
-    logout
+    logout,
+    deactivateUser,
+    deleteUser
 } = require('../controllers/userController');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -319,5 +321,112 @@ router.put('/users/:id/change-password', authenticateToken, changePassword);
  *         description: Unauthorized
  */
 router.post('/users/logout', authenticateToken, logout);
+
+/**
+ * @swagger
+ * /api/users/{id}/deactivate:
+ *   patch:
+ *     summary: Deactivate user (set status to inactive)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Usuário inativado com sucesso
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       example: inactive
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: User already inactive
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/users/:id/deactivate', authenticateToken, deactivateUser);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Delete user (soft delete by default, hard delete with query param)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *       - in: query
+ *         name: hardDelete
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Set to 'true' for permanent deletion
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Usuário removido com sucesso (soft delete)
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     deleted_at:
+ *                       type: string
+ *                       format: date-time
+ *                 deleteType:
+ *                   type: string
+ *                   enum: [soft, hard]
+ *       400:
+ *         description: User already deleted
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/users/:id', authenticateToken, deleteUser);
 
 module.exports = router;

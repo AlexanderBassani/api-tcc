@@ -830,6 +830,184 @@ const logout = async (req, res) => {
   }
 };
 
+const deactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validar se o ID é um número válido
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        error: 'ID do usuário inválido',
+        message: 'O ID deve ser um número válido',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Verificar se o usuário existe
+    const userExists = await pool.query(
+      'SELECT id, username, status FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
+
+    if (userExists.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+        message: `Usuário com ID ${userId} não existe ou já foi removido`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    const user = userExists.rows[0];
+
+    // Verificar se o usuário já está inativo
+    if (user.status === 'inactive') {
+      return res.status(400).json({
+        error: 'Usuário já está inativo',
+        message: `O usuário ${user.username} já está com status inativo`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Atualizar status para inactive
+    const result = await pool.query(
+      `UPDATE users
+       SET status = 'inactive',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, username, email, status, updated_at`,
+      [userId]
+    );
+
+    res.json({
+      message: 'Usuário inativado com sucesso',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Erro ao inativar usuário:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      userId: req.params.id,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+
+    const { status, message } = handleDatabaseError(error);
+    res.status(status).json({
+      error: message,
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hardDelete } = req.query;
+
+    // Validar se o ID é um número válido
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        error: 'ID do usuário inválido',
+        message: 'O ID deve ser um número válido',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Verificar se o usuário existe
+    const userExists = await pool.query(
+      'SELECT id, username, deleted_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userExists.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+        message: `Usuário com ID ${userId} não existe`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    const user = userExists.rows[0];
+
+    // Verificar se o usuário já foi deletado (soft delete)
+    if (user.deleted_at && hardDelete !== 'true') {
+      return res.status(400).json({
+        error: 'Usuário já foi removido',
+        message: `O usuário ${user.username} já foi removido anteriormente. Use ?hardDelete=true para remover permanentemente`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    let result;
+
+    if (hardDelete === 'true') {
+      // Hard delete - remove permanentemente do banco
+      result = await pool.query(
+        'DELETE FROM users WHERE id = $1 RETURNING id, username',
+        [userId]
+      );
+
+      res.json({
+        message: 'Usuário removido permanentemente com sucesso',
+        data: result.rows[0],
+        deleteType: 'hard'
+      });
+    } else {
+      // Soft delete - marca como deletado
+      result = await pool.query(
+        `UPDATE users
+         SET deleted_at = CURRENT_TIMESTAMP,
+             status = 'inactive',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING id, username, email, deleted_at`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(400).json({
+          error: 'Usuário já foi removido',
+          message: `O usuário já foi removido anteriormente`,
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+
+      res.json({
+        message: 'Usuário removido com sucesso (soft delete)',
+        data: result.rows[0],
+        deleteType: 'soft'
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao remover usuário:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      userId: req.params.id,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+
+    const { status, message } = handleDatabaseError(error);
+    res.status(status).json({
+      error: message,
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -840,5 +1018,7 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
-  logout
+  logout,
+  deactivateUser,
+  deleteUser
 };
