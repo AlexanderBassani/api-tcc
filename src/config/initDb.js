@@ -68,10 +68,47 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
     `;
 
+    // Criar tabela de preferências do usuário
+    const createUserPreferencesTable = `
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL UNIQUE,
+        theme_mode VARCHAR(20) DEFAULT 'system' CHECK (theme_mode IN ('light', 'dark', 'system')),
+        theme_color VARCHAR(30) DEFAULT 'blue',
+        font_size VARCHAR(20) DEFAULT 'medium' CHECK (font_size IN ('small', 'medium', 'large', 'extra-large')),
+        compact_mode BOOLEAN DEFAULT FALSE,
+        animations_enabled BOOLEAN DEFAULT TRUE,
+        high_contrast BOOLEAN DEFAULT FALSE,
+        reduce_motion BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user_preferences_user
+          FOREIGN KEY (user_id)
+          REFERENCES users(id)
+          ON DELETE CASCADE
+      )
+    `;
+
+    const createUserPreferencesTrigger = `
+      DROP TRIGGER IF EXISTS update_user_preferences_updated_at ON user_preferences;
+      CREATE TRIGGER update_user_preferences_updated_at
+        BEFORE UPDATE ON user_preferences
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `;
+
+    const createUserPreferencesIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_preferences_theme_mode ON user_preferences(theme_mode);
+    `;
+
     await pool.query(createUpdateFunction);
     await pool.query(createUsersTable);
     await pool.query(createUpdateTrigger);
     await pool.query(createIndexes);
+    await pool.query(createUserPreferencesTable);
+    await pool.query(createUserPreferencesTrigger);
+    await pool.query(createUserPreferencesIndexes);
 
     // Criar usuário administrador padrão
     await createDefaultAdmin();
@@ -123,9 +160,21 @@ const createDefaultAdmin = async () => {
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
+      RETURNING id
     `;
 
-    await pool.query(insertAdmin, [passwordHash]);
+    const adminResult = await pool.query(insertAdmin, [passwordHash]);
+    const adminId = adminResult.rows[0].id;
+
+    // Criar preferências padrão para o admin
+    await pool.query(
+      `INSERT INTO user_preferences (
+        user_id, theme_mode, theme_color, font_size,
+        compact_mode, animations_enabled, high_contrast, reduce_motion
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [adminId, 'system', 'blue', 'medium', false, true, false, false]
+    );
+
     console.log('Usuário administrador criado:');
     console.log('  Email: admin@sistema.com');
     console.log('  Username: admin');

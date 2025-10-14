@@ -133,6 +133,15 @@ npm run init-db
 - `DELETE /api/users/:id` - Excluir usuário (soft delete) **(admin only)**
 - `DELETE /api/users/:id?hardDelete=true` - Excluir usuário permanentemente **(admin only)**
 
+### Preferências do Usuário (Requer autenticação JWT)
+- `GET /api/preferences` - Obter preferências do usuário autenticado
+- `GET /api/preferences/:userId` - Obter preferências de outro usuário por ID
+- `PUT /api/preferences` - Criar ou atualizar preferências do usuário autenticado
+- `PUT /api/preferences/:userId` - Criar ou atualizar preferências de outro usuário
+- `PATCH /api/preferences/theme` - Atualizar apenas configurações de tema (usuário autenticado)
+- `DELETE /api/preferences` - Resetar preferências do usuário autenticado
+- `DELETE /api/preferences/:userId` - Resetar preferências de outro usuário
+
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
 ```
@@ -204,15 +213,17 @@ src/
 │   ├── email.js         # Configuração de email (nodemailer)
 │   └── initDb.js        # Inicialização do banco
 ├── controllers/     # Controladores
-│   ├── userController.js        # CRUD de usuários + auth
-│   └── passwordResetController.js  # Reset de senha
+│   ├── userController.js            # CRUD de usuários + auth
+│   ├── passwordResetController.js   # Reset de senha
+│   └── preferencesController.js     # Preferências do usuário
 ├── middleware/      # Middlewares
 │   ├── auth.js          # Autenticação JWT
 │   └── errorHandler.js  # Tratamento de erros
 ├── migrations/      # Migrations do banco
 ├── routes/          # Rotas da API
 │   ├── userRoutes.js       # Rotas de usuários
-│   └── passwordReset.js    # Rotas de reset de senha
+│   ├── passwordReset.js    # Rotas de reset de senha
+│   └── preferences.js      # Rotas de preferências
 ├── templates/       # Templates de email
 │   └── passwordResetEmail.js  # Template de reset de senha
 ├── utils/           # Utilitários
@@ -271,6 +282,113 @@ A tabela `users` possui uma estrutura completa com os seguintes campos:
 - `created_at` - Criado em (TIMESTAMP)
 - `updated_at` - Atualizado em (TIMESTAMP) - Auto-atualizável
 - `deleted_at` - Deletado em (TIMESTAMP) - Soft delete
+
+## 🎨 Sistema de Preferências de Usuário
+
+Cada usuário possui preferências personalizáveis automaticamente criadas no registro:
+
+### Campos Disponíveis
+
+#### Tema e Aparência
+- **theme_mode** - Modo do tema: `'light'`, `'dark'`, ou `'system'` (segue SO) - Padrão: `'system'`
+- **theme_color** - Cor primária do tema (string) - Padrão: `'blue'`
+
+#### Interface
+- **font_size** - Tamanho da fonte: `'small'`, `'medium'`, `'large'`, `'extra-large'` - Padrão: `'medium'`
+- **compact_mode** - Modo compacto da interface (boolean) - Padrão: `false`
+- **animations_enabled** - Habilitar animações (boolean) - Padrão: `true`
+
+#### Acessibilidade
+- **high_contrast** - Modo de alto contraste (boolean) - Padrão: `false`
+- **reduce_motion** - Reduzir movimento/animações (boolean) - Padrão: `false`
+
+### Estrutura da Tabela user_preferences
+
+```sql
+CREATE TABLE user_preferences (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE,
+  theme_mode VARCHAR(20) DEFAULT 'system',
+  theme_color VARCHAR(30) DEFAULT 'blue',
+  font_size VARCHAR(20) DEFAULT 'medium',
+  compact_mode BOOLEAN DEFAULT FALSE,
+  animations_enabled BOOLEAN DEFAULT TRUE,
+  high_contrast BOOLEAN DEFAULT FALSE,
+  reduce_motion BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_user_preferences_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+### Comportamento
+
+- ✅ **Criação Automática**: Preferências são criadas automaticamente ao registrar um novo usuário
+- ✅ **Valores Padrão**: Todos os campos possuem valores padrão sensatos
+- ✅ **Atualização Parcial**: Pode-se atualizar apenas campos específicos
+- ✅ **Cascade Delete**: Preferências são excluídas automaticamente quando o usuário é removido
+
+### Exemplo de Uso
+
+```javascript
+// Obter preferências do usuário autenticado
+GET /api/preferences
+Authorization: Bearer {token}
+
+// Obter preferências de outro usuário (por ID)
+GET /api/preferences/1
+Authorization: Bearer {token}
+
+// Atualizar tema para escuro (usuário autenticado)
+PATCH /api/preferences/theme
+Authorization: Bearer {token}
+{
+  "theme_mode": "dark",
+  "theme_color": "purple"
+}
+
+// Atualizar múltiplas preferências (usuário autenticado)
+PUT /api/preferences
+Authorization: Bearer {token}
+{
+  "font_size": "large",
+  "compact_mode": true,
+  "animations_enabled": false
+}
+
+// Atualizar preferências de outro usuário
+PUT /api/preferences/2
+Authorization: Bearer {token}
+{
+  "theme_mode": "light",
+  "theme_color": "green"
+}
+
+// Resetar preferências do usuário autenticado
+DELETE /api/preferences
+Authorization: Bearer {token}
+
+// Resetar preferências de outro usuário
+DELETE /api/preferences/3
+Authorization: Bearer {token}
+```
+
+### Parâmetro de Rota userId
+
+Todos os endpoints principais (`GET`, `PUT`, `DELETE`) aceitam um parâmetro opcional `userId` como parte da rota:
+- **Se fornecido**: Opera nas preferências do usuário especificado (ex: `/api/preferences/5`)
+- **Se omitido**: Opera nas preferências do usuário autenticado (via token JWT) (ex: `/api/preferences`)
+- **Validação**: O `userId` deve ser um número inteiro válido
+
+**Exemplo:**
+```bash
+# Próprias preferências
+GET http://localhost:3000/api/preferences
+
+# Preferências do usuário com ID 5
+GET http://localhost:3000/api/preferences/5
+```
 
 ## 🐳 Serviços Docker
 
@@ -394,6 +512,13 @@ EMAIL_USER=seu-email@gmail.com
 EMAIL_PASSWORD=sua-senha-de-aplicativo
 ```
 
+## 📚 Documentação da API
+
+A documentação interativa completa está disponível via Swagger UI:
+- **Local**: http://localhost:3000/api-docs
+- **Docker**: http://localhost:3001/api-docs
+- **JSON**: http://localhost:3000/api-docs.json
+
 ## 🚀 Próximos Passos
 
 1. ~~Implementar autenticação JWT~~ ✅
@@ -405,8 +530,9 @@ EMAIL_PASSWORD=sua-senha-de-aplicativo
 7. ~~Implementar middleware de autorização por role (RBAC)~~ ✅
 8. ~~Implementar endpoints de exclusão e inativação de usuários~~ ✅
 9. ~~Documentar API com Swagger~~ ✅
-10. Implementar verificação de email
-11. Adicionar upload de imagem de perfil
-12. Adicionar rate limiting
-13. Implementar 2FA (Two-Factor Authentication)
-14. Adicionar logs de auditoria
+10. ~~Implementar sistema de preferências de usuário~~ ✅
+11. Implementar verificação de email
+12. Adicionar upload de imagem de perfil
+13. Adicionar rate limiting
+14. Implementar 2FA (Two-Factor Authentication)
+15. Adicionar logs de auditoria

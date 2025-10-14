@@ -2,6 +2,38 @@ const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Função auxiliar para criar preferências padrão
+const createDefaultPreferences = async (userId) => {
+  try {
+    await pool.query(
+      `INSERT INTO user_preferences (
+        user_id,
+        theme_mode,
+        theme_color,
+        font_size,
+        compact_mode,
+        animations_enabled,
+        high_contrast,
+        reduce_motion
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        userId,
+        'system',    // theme_mode
+        'blue',      // theme_color
+        'medium',    // font_size
+        false,       // compact_mode
+        true,        // animations_enabled
+        false,       // high_contrast
+        false        // reduce_motion
+      ]
+    );
+    console.log(`✓ Preferências padrão criadas para o usuário ${userId}`);
+  } catch (error) {
+    console.error(`Erro ao criar preferências padrão para o usuário ${userId}:`, error);
+    // Não falhar a criação do usuário se as preferências falharem
+  }
+};
+
 // Funções auxiliares para JWT
 const generateToken = (user) => {
   return jwt.sign(
@@ -297,9 +329,14 @@ const createUser = async (req, res) => {
         created_at
     `, [first_name, last_name, username, email, password_hash, role, phone, date_of_birth, gender]);
 
+    const newUser = result.rows[0];
+
+    // Criar preferências padrão para o novo usuário
+    await createDefaultPreferences(newUser.id);
+
     res.status(201).json({
       message: 'Usuário criado com sucesso',
-      data: result.rows[0]
+      data: newUser
     });
 
   } catch (error) {
@@ -426,6 +463,10 @@ const register = async (req, res) => {
     );
 
     const user = result.rows[0];
+
+    // Criar preferências padrão para o novo usuário
+    await createDefaultPreferences(user.id);
+
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 

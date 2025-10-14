@@ -4,6 +4,8 @@
 
 ```mermaid
 erDiagram
+    USERS ||--o| USER_PREFERENCES : has
+
     USERS {
         SERIAL id PK
         VARCHAR(50) first_name
@@ -36,6 +38,20 @@ erDiagram
         TIMESTAMP created_at "DEFAULT CURRENT_TIMESTAMP"
         TIMESTAMP updated_at "DEFAULT CURRENT_TIMESTAMP"
         TIMESTAMP deleted_at
+    }
+
+    USER_PREFERENCES {
+        SERIAL id PK
+        INTEGER user_id FK,UK
+        VARCHAR(20) theme_mode "DEFAULT 'system'"
+        VARCHAR(30) theme_color "DEFAULT 'blue'"
+        VARCHAR(20) font_size "DEFAULT 'medium'"
+        BOOLEAN compact_mode "DEFAULT FALSE"
+        BOOLEAN animations_enabled "DEFAULT TRUE"
+        BOOLEAN high_contrast "DEFAULT FALSE"
+        BOOLEAN reduce_motion "DEFAULT FALSE"
+        TIMESTAMP created_at "DEFAULT CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "DEFAULT CURRENT_TIMESTAMP"
     }
 ```
 
@@ -131,6 +147,54 @@ O sistema cria automaticamente um usuário administrador:
 
 ⚠️ **IMPORTANTE**: Altere a senha padrão após o primeiro login!
 
+### Tabela: `user_preferences`
+
+#### Campos Principais
+- **id** (SERIAL PRIMARY KEY): Identificador único da preferência
+- **user_id** (INTEGER UNIQUE NOT NULL FK): Referência ao usuário (chave estrangeira única)
+
+#### Tema e Aparência
+- **theme_mode** (VARCHAR(20)): Modo do tema (`light`, `dark`, `system`)
+- **theme_color** (VARCHAR(30)): Cor principal do tema (padrão: `blue`)
+
+#### Interface
+- **font_size** (VARCHAR(20)): Tamanho da fonte (`small`, `medium`, `large`, `extra-large`)
+- **compact_mode** (BOOLEAN): Modo compacto da interface
+- **animations_enabled** (BOOLEAN): Animações habilitadas
+
+#### Acessibilidade
+- **high_contrast** (BOOLEAN): Modo de alto contraste
+- **reduce_motion** (BOOLEAN): Reduzir animações (acessibilidade)
+
+#### Auditoria
+- **created_at** (TIMESTAMP): Data de criação
+- **updated_at** (TIMESTAMP): Data da última atualização (atualizado automaticamente via trigger)
+
+### Relacionamentos
+
+- **USERS → USER_PREFERENCES**: Relação 1:1 (um usuário possui uma configuração de preferências)
+- **Foreign Key**: `user_preferences.user_id` referencia `users.id`
+- **ON DELETE CASCADE**: Quando um usuário é deletado, suas preferências são automaticamente removidas
+
+### Índices de user_preferences
+
+Para otimização de consultas:
+- `idx_user_preferences_user_id`: Índice no campo `user_id`
+- `idx_user_preferences_theme_mode`: Índice no campo `theme_mode`
+
+### Constraints (Restrições) de user_preferences
+
+#### CHECK Constraints
+- **theme_mode**: Deve ser `light`, `dark` ou `system`
+- **font_size**: Deve ser `small`, `medium`, `large` ou `extra-large`
+
+#### UNIQUE Constraints
+- **user_id**: Cada usuário pode ter apenas um registro de preferências
+
+### Triggers de user_preferences
+
+- **update_user_preferences_updated_at**: Atualiza automaticamente o campo `updated_at` sempre que um registro é modificado
+
 ## Visualização Simplificada
 
 ```
@@ -160,15 +224,37 @@ O sistema cria automaticamente um usuário administrador:
 │    │ marketing_emails_consent                   │
 │    │ created_at, updated_at, deleted_at         │
 └─────────────────────────────────────────────────┘
+                         │
+                         │ 1:1
+                         │
+┌─────────────────────────────────────────────────┐
+│              USER_PREFERENCES                   │
+├─────────────────────────────────────────────────┤
+│ PK │ id                                         │
+│ FK │ user_id (UNIQUE) → users.id                │
+│ UK │                                            │
+│    │ theme_mode (light/dark/system)             │
+│    │ theme_color (blue)                         │
+│    │ font_size (small/medium/large/extra-large) │
+│    │ compact_mode                               │
+│    │ animations_enabled                         │
+│    │ high_contrast                              │
+│    │ reduce_motion                              │
+│    │ created_at, updated_at                     │
+└─────────────────────────────────────────────────┘
 
-Índices: email, username, status, created_at, deleted_at
+Índices USERS: email, username, status, created_at, deleted_at
+Índices USER_PREFERENCES: user_id, theme_mode
 ```
 
 ## Observações
 
 1. **Soft Delete**: O sistema usa `deleted_at` para exclusão lógica (soft delete)
-2. **Timestamps Automáticos**: `updated_at` é atualizado automaticamente via trigger
+2. **Timestamps Automáticos**: `updated_at` é atualizado automaticamente via trigger (tanto em users quanto em user_preferences)
 3. **Segurança**: Senhas são armazenadas como hash (bcrypt)
 4. **Tentativas de Login**: Sistema de bloqueio após múltiplas tentativas
 5. **Tokens**: Sistema de recuperação de senha e verificação de email via tokens
 6. **GDPR Compliance**: Campos para consentimento de marketing e políticas de privacidade
+7. **Preferências Automáticas**: Ao criar um usuário (registro ou criação admin), suas preferências são automaticamente criadas com valores padrão
+8. **Cascade Delete**: Quando um usuário é deletado, suas preferências são automaticamente removidas devido ao `ON DELETE CASCADE`
+9. **Relação 1:1**: Cada usuário tem exatamente um registro de preferências (garantido pelo UNIQUE constraint em user_id)

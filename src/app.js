@@ -4,6 +4,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
 const passwordResetRoutes = require('./routes/passwordReset');
+const preferencesRoutes = require('./routes/preferences');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 require('dotenv').config();
 
@@ -112,6 +113,7 @@ app.get('/api-docs.json', (req, res) => {
 // Rotas da API
 app.use('/api', userRoutes);
 app.use('/api/password-reset', passwordResetRoutes);
+app.use('/api/preferences', preferencesRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

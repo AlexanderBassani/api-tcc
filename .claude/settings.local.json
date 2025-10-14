@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(timeout 10 docker logs -f api_app)",
+      "Bash(npm run dev:*)",
+      "Bash(node:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout 8 docker logs -f api_app)",
+      "Bash(docker-compose:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run docker:restart:*)",
+      "Bash(timeout 5 docker logs -f api_app)",
+      "Bash(npm run docker:up:*)",
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run init-db:*)",
+      "Bash(psql:*)",
+      "Bash(npm run seed:admin-prefs:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

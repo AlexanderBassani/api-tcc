@@ -43,12 +43,23 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - `src/` - Código fonte da aplicação
   - `app.js` - Configuração do Express
   - `server.js` - Inicialização do servidor
-  - `config/` - Configurações (database, initDb)
+  - `config/` - Configurações (database, initDb, swagger)
   - `controllers/` - Controladores das rotas
+    - `userController.js` - CRUD de usuários e autenticação
+    - `passwordResetController.js` - Reset de senha
+    - `preferencesController.js` - Preferências de usuário
   - `routes/` - Definição das rotas
-  - `models/` - Modelos (para futuras implementações)
+    - `userRoutes.js` - Rotas de usuários
+    - `passwordReset.js` - Rotas de reset de senha
+    - `preferences.js` - Rotas de preferências
+  - `middleware/` - Middlewares (auth, errorHandler)
+  - `templates/` - Templates de email
+  - `utils/` - Utilitários
 - `__tests__/` - Testes Jest
 - `scripts/` - Scripts utilitários
+  - `init-db.js` - Inicialização do banco
+  - `migrate.js` - Sistema de migrations
+- `migrations/` - Arquivos SQL de migrations
 
 ## Tecnologias Utilizadas
 
@@ -145,6 +156,26 @@ A documentação completa da API está disponível através do Swagger UI:
 - `POST /api/password-reset/validate-token` - Validar token de reset
 - `POST /api/password-reset/reset` - Redefinir senha
 
+### Preferências do Usuário (Autenticados)
+- `GET /api/preferences` - Obter preferências do usuário autenticado
+- `GET /api/preferences/:userId` - Obter preferências de outro usuário
+- `PUT /api/preferences` - Criar/atualizar preferências do usuário autenticado
+- `PUT /api/preferences/:userId` - Criar/atualizar preferências de outro usuário
+- `DELETE /api/preferences` - Resetar preferências do usuário autenticado
+- `DELETE /api/preferences/:userId` - Resetar preferências de outro usuário
+- `PATCH /api/preferences/theme` - Atualizar apenas tema (usuário autenticado)
+
+#### Campos de Preferências:
+- **theme_mode**: 'light', 'dark', 'system' (segue o sistema operacional) - Padrão: 'system'
+- **theme_color**: Cor principal do tema (string) - Padrão: 'blue'
+- **font_size**: 'small', 'medium', 'large', 'extra-large' - Padrão: 'medium'
+- **compact_mode**: Modo compacto da interface (boolean) - Padrão: false
+- **animations_enabled**: Habilitar animações (boolean) - Padrão: true
+- **high_contrast**: Modo de alto contraste (boolean) - Padrão: false
+- **reduce_motion**: Reduzir movimento para acessibilidade (boolean) - Padrão: false
+
+**Nota**: Quando um usuário é criado (via registro ou criação admin), as preferências padrão são automaticamente criadas no banco de dados com os valores acima. O usuário pode então modificá-las usando PUT ou PATCH conforme desejar.
+
 ## Sistema de Autorização (RBAC)
 
 O projeto implementa controle de acesso baseado em roles (RBAC - Role-Based Access Control):
@@ -184,6 +215,13 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
 
 ## Notas para Desenvolvimento
 
+### Importante para o Claude Code
+⚠️ **Regras de Commit:**
+- **NÃO** fazer commit automaticamente após alterações
+- **NÃO** fazer push automaticamente
+- Sempre atualizar `.env.example` quando modificar `.env`
+- Apenas fazer commit/push quando explicitamente solicitado pelo usuário
+
 ### Desenvolvimento Local
 - O servidor roda na porta 3000 por padrão
 - Usar `nodemon` em desenvolvimento para reload automático
@@ -197,3 +235,11 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
 - PgAdmin disponível na porta 8080 (http://localhost:8080)
 - PostgreSQL na porta 5432
 - Usar `npm run docker:init-db` para inicializar o banco no container
+
+## Workflow de Desenvolvimento
+
+### Ao modificar variáveis de ambiente
+1. Editar `.env` com os novos valores
+2. Atualizar `.env.example` removendo valores sensíveis
+3. Documentar no CLAUDE.md e README.md se necessário
+4. Aguardar solicitação do usuário para commit/push
