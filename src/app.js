@@ -6,6 +6,8 @@ const userRoutes = require('./routes/userRoutes');
 const passwordResetRoutes = require('./routes/passwordReset');
 const preferencesRoutes = require('./routes/preferences');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { requestLogger, errorLogger } = require('./middleware/requestLogger');
+const logger = require('./config/logger');
 require('dotenv').config();
 
 const app = express();
@@ -51,13 +53,8 @@ const urlEncodedLimit = process.env.URL_ENCODED_LIMIT || '10mb';
 app.use(express.json({ limit: jsonLimit }));
 app.use(express.urlencoded({ extended: true, limit: urlEncodedLimit }));
 
-// Middleware para logging de requisições em desenvolvimento
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-  });
-}
+// Middleware de logging de requisições (todas as requisições HTTP)
+app.use(requestLogger);
 
 // Rotas principais
 app.get('/', (req, res) => {
@@ -117,6 +114,9 @@ app.use('/api/preferences', preferencesRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);
+
+// Middleware de logging de erros (antes do errorHandler)
+app.use(errorLogger);
 
 // Middleware global de tratamento de erros (deve ser o último)
 app.use(errorHandler);

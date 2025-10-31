@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const logger = require('../config/logger');
 
 // Função auxiliar para criar preferências padrão
 const createDefaultPreferences = async (userId) => {
@@ -27,9 +28,13 @@ const createDefaultPreferences = async (userId) => {
         false        // reduce_motion
       ]
     );
-    console.log(`✓ Preferências padrão criadas para o usuário ${userId}`);
+    logger.info('Default preferences created', { userId });
   } catch (error) {
-    console.error(`Erro ao criar preferências padrão para o usuário ${userId}:`, error);
+    logger.error('Failed to create default preferences', {
+      userId,
+      error: error.message,
+      stack: error.stack
+    });
     // Não falhar a criação do usuário se as preferências falharem
   }
 };
@@ -112,11 +117,11 @@ const getAllUsers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar usuários:', {
+    logger.error('Failed to fetch users', {
       message: error.message,
       code: error.code,
       detail: error.detail,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);
@@ -182,12 +187,12 @@ const getUserById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar usuário:', {
+    logger.error('Failed to fetch user by ID', {
       message: error.message,
       code: error.code,
       detail: error.detail,
       userId: req.params.id,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);
@@ -334,19 +339,26 @@ const createUser = async (req, res) => {
     // Criar preferências padrão para o novo usuário
     await createDefaultPreferences(newUser.id);
 
+    logger.info('User created successfully', {
+      userId: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role
+    });
+
     res.status(201).json({
       message: 'Usuário criado com sucesso',
       data: newUser
     });
 
   } catch (error) {
-    console.error('Erro ao criar usuário:', {
+    logger.error('Failed to create user', {
       message: error.message,
       code: error.code,
       detail: error.detail,
       constraint: error.constraint,
       requestBody: { ...req.body, password: '[REDACTED]' },
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);
@@ -470,6 +482,12 @@ const register = async (req, res) => {
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    logger.info('User registered successfully', {
+      userId: user.id,
+      username: user.username,
+      email: user.email
+    });
+
     res.status(201).json({
       message: 'Usuário cadastrado com sucesso',
       user,
@@ -477,13 +495,13 @@ const register = async (req, res) => {
       refreshToken
     });
   } catch (error) {
-    console.error('Erro ao cadastrar usuário:', {
+    logger.error('Failed to register user', {
       message: error.message,
       code: error.code,
       detail: error.detail,
       constraint: error.constraint,
       requestBody: { ...req.body, password: '[REDACTED]' },
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);
@@ -584,6 +602,12 @@ const login = async (req, res) => {
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    logger.info('User logged in successfully', {
+      userId: user.id,
+      username: user.username,
+      email: user.email
+    });
+
     res.json({
       message: 'Login realizado com sucesso',
       user,
@@ -591,7 +615,11 @@ const login = async (req, res) => {
       refreshToken
     });
   } catch (error) {
-    console.error('Erro ao realizar login:', error);
+    logger.error('Login failed', {
+      message: error.message,
+      login: req.body.login,
+      stack: error.stack
+    });
     const { status, message } = handleDatabaseError(error);
     res.status(status).json({
       error: message,
@@ -646,7 +674,10 @@ const refreshToken = async (req, res) => {
       });
     });
   } catch (error) {
-    console.error('Erro ao renovar token:', error);
+    logger.error('Token refresh failed', {
+      message: error.message,
+      stack: error.stack
+    });
     const { status, message } = handleDatabaseError(error);
     res.status(status).json({
       error: message,
@@ -678,7 +709,11 @@ const getProfile = async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Erro ao buscar perfil:', error);
+    logger.error('Failed to fetch profile', {
+      message: error.message,
+      userId: req.user?.id,
+      stack: error.stack
+    });
     const { status, message } = handleDatabaseError(error);
     res.status(status).json({
       error: message,
@@ -729,12 +764,21 @@ const updateProfile = async (req, res) => {
       });
     }
 
+    logger.info('Profile updated successfully', {
+      userId: req.user.id,
+      updatedFields: Object.keys(req.body)
+    });
+
     res.json({
       message: 'Perfil atualizado com sucesso',
       user: result.rows[0]
     });
   } catch (error) {
-    console.error('Erro ao atualizar perfil:', error);
+    logger.error('Failed to update profile', {
+      message: error.message,
+      userId: req.user?.id,
+      stack: error.stack
+    });
     const { status, message } = handleDatabaseError(error);
     res.status(status).json({
       error: message,
@@ -837,6 +881,13 @@ const changePassword = async (req, res) => {
       [newPasswordHash, targetUserId]
     );
 
+    logger.info('Password changed successfully', {
+      targetUserId,
+      isChangingOwnPassword,
+      adminOverride: adminOverride || false,
+      changedBy: req.user.id
+    });
+
     res.json({
       message: isChangingOwnPassword
         ? 'Senha alterada com sucesso'
@@ -844,7 +895,12 @@ const changePassword = async (req, res) => {
       adminOverride: adminOverride || false
     });
   } catch (error) {
-    console.error('Erro ao alterar senha:', error);
+    logger.error('Failed to change password', {
+      message: error.message,
+      targetUserId: req.params.id || req.user?.id,
+      changedBy: req.user?.id,
+      stack: error.stack
+    });
     const { status, message } = handleDatabaseError(error);
     res.status(status).json({
       error: message,
@@ -856,13 +912,22 @@ const changePassword = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
+    logger.info('User logged out', {
+      userId: req.user?.id,
+      username: req.user?.username
+    });
+
     // Logout simples - apenas retorna mensagem de sucesso
     // No lado do cliente, o token deve ser removido
     res.json({
       message: 'Logout realizado com sucesso'
     });
   } catch (error) {
-    console.error('Erro ao realizar logout:', error);
+    logger.error('Logout failed', {
+      message: error.message,
+      userId: req.user?.id,
+      stack: error.stack
+    });
     res.status(500).json({
       error: 'Erro ao realizar logout',
       timestamp: new Date().toISOString(),
@@ -924,17 +989,24 @@ const deactivateUser = async (req, res) => {
       [userId]
     );
 
+    logger.info('User deactivated successfully', {
+      targetUserId: userId,
+      deactivatedBy: req.user.id,
+      username: user.username
+    });
+
     res.json({
       message: 'Usuário inativado com sucesso',
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Erro ao inativar usuário:', {
+    logger.error('Failed to deactivate user', {
       message: error.message,
       code: error.code,
       detail: error.detail,
-      userId: req.params.id,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      targetUserId: req.params.id,
+      deactivatedBy: req.user?.id,
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);
@@ -999,6 +1071,12 @@ const deleteUser = async (req, res) => {
         [userId]
       );
 
+      logger.warn('User permanently deleted (hard delete)', {
+        targetUserId: userId,
+        username: result.rows[0].username,
+        deletedBy: req.user.id
+      });
+
       res.json({
         message: 'Usuário removido permanentemente com sucesso',
         data: result.rows[0],
@@ -1025,6 +1103,12 @@ const deleteUser = async (req, res) => {
         });
       }
 
+      logger.info('User deleted (soft delete)', {
+        targetUserId: userId,
+        username: result.rows[0].username,
+        deletedBy: req.user.id
+      });
+
       res.json({
         message: 'Usuário removido com sucesso (soft delete)',
         data: result.rows[0],
@@ -1032,12 +1116,14 @@ const deleteUser = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Erro ao remover usuário:', {
+    logger.error('Failed to delete user', {
       message: error.message,
       code: error.code,
       detail: error.detail,
-      userId: req.params.id,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      targetUserId: req.params.id,
+      hardDelete: req.query.hardDelete,
+      deletedBy: req.user?.id,
+      stack: error.stack
     });
 
     const { status, message } = handleDatabaseError(error);

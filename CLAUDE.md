@@ -43,7 +43,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - `src/` - Código fonte da aplicação
   - `app.js` - Configuração do Express
   - `server.js` - Inicialização do servidor
-  - `config/` - Configurações (database, initDb, swagger)
+  - `config/` - Configurações (database, initDb, swagger, logger)
   - `controllers/` - Controladores das rotas
     - `userController.js` - CRUD de usuários e autenticação
     - `passwordResetController.js` - Reset de senha
@@ -52,7 +52,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
     - `preferences.js` - Rotas de preferências
-  - `middleware/` - Middlewares (auth, errorHandler)
+  - `middleware/` - Middlewares (auth, errorHandler, requestLogger)
   - `templates/` - Templates de email
   - `utils/` - Utilitários
 - `__tests__/` - Testes Jest
@@ -60,6 +60,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
   - `init-db.js` - Inicialização do banco
   - `migrate.js` - Sistema de migrations
 - `migrations/` - Arquivos SQL de migrations
+- `logs/` - Arquivos de log gerados pelo winston (gitignored)
 
 ## Tecnologias Utilizadas
 
@@ -75,6 +76,8 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **bcryptjs** - Hash de senhas
 - **nodemailer** - Envio de emails
 - **swagger** - Documentação da API
+- **winston** - Sistema de logging profissional
+- **winston-daily-rotate-file** - Rotação automática de arquivos de log
 
 ## Configuração do Banco
 
@@ -114,6 +117,51 @@ URL_ENCODED_LIMIT=10mb       # Limite para dados URL-encoded
 Valores padrão (se não configurados):
 - JSON: 10mb
 - URL-encoded: 10mb
+
+## Sistema de Logs
+
+O projeto utiliza **Winston** para logging profissional com rotação automática de arquivos.
+
+### Características
+- **Níveis de log**: error, warn, info, http, debug
+- **Rotação automática**: Arquivos rotacionam diariamente
+- **Compressão**: Logs antigos são comprimidos automaticamente
+- **Separação por tipo**: Arquivos separados para erros, HTTP e logs gerais
+- **Formato configurável**: JSON ou formato simples
+
+### Arquivos de Log
+- `logs/error-YYYY-MM-DD.log` - Apenas erros
+- `logs/combined-YYYY-MM-DD.log` - Todos os logs
+- `logs/http-YYYY-MM-DD.log` - Logs de requisições HTTP
+
+### Configuração no `.env`
+```bash
+LOG_LEVEL=info              # error, warn, info, http, debug
+LOG_DIR=logs                # Diretório dos arquivos de log
+LOG_MAX_SIZE=20m            # Tamanho máximo antes de rotacionar
+LOG_MAX_FILES=14d           # Retenção dos arquivos (14 dias)
+LOG_FORMAT=json             # json ou simple
+```
+
+### Uso no Código
+```javascript
+const logger = require('../config/logger');
+
+// Diferentes níveis
+logger.error('Error message', { userId: 123, error: err.message });
+logger.warn('Warning message', { action: 'user_delete' });
+logger.info('Info message', { userId: 123 });
+logger.http('HTTP message', { method: 'GET', path: '/api/users' });
+logger.debug('Debug message', { data: someData });
+```
+
+### Logs Automáticos
+- **Todas as requisições HTTP** são automaticamente logadas com:
+  - Método, URL, IP, User Agent
+  - Status code da resposta
+  - Tempo de resposta (duration)
+  - ID do usuário (se autenticado)
+- **Erros não tratados** são capturados e logados automaticamente
 
 ## Comandos de Lint/TypeCheck
 

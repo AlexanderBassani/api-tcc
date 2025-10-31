@@ -5,6 +5,9 @@ coverage/
 dist/
 *.log
 
+# Arquivos de log do winston
+logs/
+
 # Dados do banco PostgreSQL local
 data/postgres/
 data/
