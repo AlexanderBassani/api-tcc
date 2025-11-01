@@ -8,6 +8,7 @@ const {
     refreshToken,
     getProfile,
     updateProfile,
+    updateUser,
     changePassword,
     logout,
     deactivateUser,
@@ -242,6 +243,52 @@ router.post('/users', authenticateToken, authorizeRoles('admin'), createUser);
  *         description: Unauthorized
  */
 router.put('/users/profile', authenticateToken, updateProfile);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateUser'
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
+ *       404:
+ *         description: User not found
+ *       409:
+ *         description: Username or email already in use
+ */
+router.put('/users/:id', authenticateToken, authorizeRoles('admin'), updateUser);
 
 /**
  * @swagger

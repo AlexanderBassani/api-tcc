@@ -1018,6 +1018,252 @@ const deactivateUser = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      first_name,
+      last_name,
+      username,
+      email,
+      password,
+      role,
+      phone,
+      date_of_birth,
+      gender,
+      bio,
+      profile_image_url,
+      status,
+      preferred_language,
+      timezone,
+      marketing_emails_consent
+    } = req.body;
+
+    // Validar se o ID é um número válido
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        error: 'ID do usuário inválido',
+        message: 'O ID deve ser um número válido',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    const userId = parseInt(id);
+
+    // Verificar se o usuário existe
+    const userExists = await pool.query(
+      'SELECT id, username, email FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
+
+    if (userExists.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+        message: `Usuário com ID ${userId} não existe ou foi removido`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validar campos se fornecidos
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          error: 'Email inválido',
+          message: 'O formato do email não é válido',
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+    }
+
+    if (username && (username.length < 3 || username.length > 30)) {
+      return res.status(400).json({
+        error: 'Username inválido',
+        message: 'O username deve ter entre 3 e 30 caracteres',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (password && password.length < 6) {
+      return res.status(400).json({
+        error: 'Senha muito fraca',
+        message: 'A senha deve ter pelo menos 6 caracteres',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (gender && !['male', 'female', 'other', 'prefer_not_to_say'].includes(gender)) {
+      return res.status(400).json({
+        error: 'Gênero inválido',
+        message: 'Gênero deve ser: male, female, other ou prefer_not_to_say',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (role && !['admin', 'user'].includes(role)) {
+      return res.status(400).json({
+        error: 'Role inválido',
+        message: 'Role deve ser: admin ou user',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (status && !['active', 'inactive', 'suspended'].includes(status)) {
+      return res.status(400).json({
+        error: 'Status inválido',
+        message: 'Status deve ser: active, inactive ou suspended',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Verificar se username ou email já estão em uso por outro usuário
+    if (username || email) {
+      const existingUser = await pool.query(
+        'SELECT username, email, id FROM users WHERE (username = $1 OR email = $2) AND id != $3',
+        [username || '', email || '', userId]
+      );
+
+      if (existingUser.rows.length > 0) {
+        const conflicts = [];
+        existingUser.rows.forEach(user => {
+          if (user.username === username) conflicts.push('username');
+          if (user.email === email) conflicts.push('email');
+        });
+
+        return res.status(409).json({
+          error: 'Dados já existem',
+          message: `Os seguintes dados já estão em uso por outro usuário: ${conflicts.join(', ')}`,
+          conflicts: conflicts,
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+    }
+
+    // Preparar campos para atualização
+    let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
+    const values = [];
+    let paramCounter = 1;
+
+    if (first_name !== undefined) {
+      query += `, first_name = $${paramCounter++}`;
+      values.push(first_name);
+    }
+    if (last_name !== undefined) {
+      query += `, last_name = $${paramCounter++}`;
+      values.push(last_name);
+    }
+    if (username !== undefined) {
+      query += `, username = $${paramCounter++}`;
+      values.push(username);
+    }
+    if (email !== undefined) {
+      query += `, email = $${paramCounter++}`;
+      values.push(email);
+    }
+    if (password !== undefined) {
+      const password_hash = await bcrypt.hash(password, 10);
+      query += `, password_hash = $${paramCounter++}`;
+      values.push(password_hash);
+    }
+    if (role !== undefined) {
+      query += `, role = $${paramCounter++}`;
+      values.push(role);
+    }
+    if (phone !== undefined) {
+      query += `, phone = $${paramCounter++}`;
+      values.push(phone);
+    }
+    if (date_of_birth !== undefined) {
+      query += `, date_of_birth = $${paramCounter++}`;
+      values.push(date_of_birth);
+    }
+    if (gender !== undefined) {
+      query += `, gender = $${paramCounter++}`;
+      values.push(gender);
+    }
+    if (bio !== undefined) {
+      query += `, bio = $${paramCounter++}`;
+      values.push(bio);
+    }
+    if (profile_image_url !== undefined) {
+      query += `, profile_image_url = $${paramCounter++}`;
+      values.push(profile_image_url);
+    }
+    if (status !== undefined) {
+      query += `, status = $${paramCounter++}`;
+      values.push(status);
+    }
+    if (preferred_language !== undefined) {
+      query += `, preferred_language = $${paramCounter++}`;
+      values.push(preferred_language);
+    }
+    if (timezone !== undefined) {
+      query += `, timezone = $${paramCounter++}`;
+      values.push(timezone);
+    }
+    if (marketing_emails_consent !== undefined) {
+      query += `, marketing_emails_consent = $${paramCounter++}`;
+      values.push(marketing_emails_consent);
+    }
+
+    query += ` WHERE id = $${paramCounter} AND deleted_at IS NULL`;
+    values.push(userId);
+
+    query += ` RETURNING id, first_name, last_name, username, email, role, phone,
+                        date_of_birth, gender, bio, profile_image_url, status,
+                        email_verified, phone_verified, preferred_language, timezone,
+                        marketing_emails_consent, created_at, updated_at`;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+        message: `Não foi possível atualizar o usuário com ID ${userId}`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    logger.info('User updated successfully', {
+      targetUserId: userId,
+      updatedBy: req.user.id,
+      updatedFields: Object.keys(req.body)
+    });
+
+    res.json({
+      message: 'Usuário atualizado com sucesso',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    logger.error('Failed to update user', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      targetUserId: req.params.id,
+      updatedBy: req.user?.id,
+      stack: error.stack
+    });
+
+    const { status, message } = handleDatabaseError(error);
+    res.status(status).json({
+      error: message,
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+};
+
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1144,6 +1390,7 @@ module.exports = {
   refreshToken,
   getProfile,
   updateProfile,
+  updateUser,
   changePassword,
   logout,
   deactivateUser,
