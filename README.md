@@ -521,6 +521,7 @@ A documentação interativa completa está disponível via Swagger UI:
 
 ## 🚀 Próximos Passos
 
+### Funcionalidades Concluídas
 1. ~~Implementar autenticação JWT~~ ✅
 2. ~~Adicionar middleware de autorização~~ ✅
 3. ~~Criar endpoints de login/logout~~ ✅
@@ -531,8 +532,54 @@ A documentação interativa completa está disponível via Swagger UI:
 8. ~~Implementar endpoints de exclusão e inativação de usuários~~ ✅
 9. ~~Documentar API com Swagger~~ ✅
 10. ~~Implementar sistema de preferências de usuário~~ ✅
-11. Implementar verificação de email
-12. Adicionar upload de imagem de perfil
-13. Adicionar rate limiting
-14. Implementar 2FA (Two-Factor Authentication)
-15. Adicionar logs de auditoria
+11. ~~Sistema de logging profissional com Winston~~ ✅
+
+### Segurança (Próxima Prioridade)
+12. **Implementar Helmet** - Headers de segurança HTTP
+    - Proteção XSS, clickjacking, MIME sniffing
+    - Content Security Policy (CSP)
+    - HSTS (HTTP Strict Transport Security)
+    - Pacote: `helmet`
+
+13. **Implementar Rate Limiting** - Proteção contra ataques DDoS/brute force
+    - Limitar requisições por IP
+    - Limitar tentativas de login
+    - Rate limit diferenciado por rota
+    - Pacotes: `express-rate-limit` + `rate-limit-redis` (para produção escalável)
+
+14. **Implementar Validação e Sanitização de Dados**
+    - Validação robusta de inputs
+    - Sanitização contra XSS
+    - Prevenção de SQL/NoSQL Injection
+    - Pacote: `express-validator` (recomendado) ou `joi`
+
+15. **Implementar proteção HTTP Parameter Pollution (HPP)**
+    - Proteção contra poluição de parâmetros
+    - Prevenir arrays maliciosos em query strings
+    - Pacote: `hpp`
+
+16. **Implementar CSRF Protection**
+    - Proteção contra Cross-Site Request Forgery
+    - Tokens CSRF para formulários
+    - Pacote: `csurf` ou `csrf-csrf`
+
+### Funcionalidades Adicionais
+17. Implementar verificação de email
+18. Adicionar upload de imagem de perfil (com validação e limite de tamanho)
+19. Implementar 2FA (Two-Factor Authentication)
+20. Adicionar logs de auditoria para ações críticas
+21. Implementar política de senha forte (complexidade mínima)
+22. Adicionar notificação de login suspeito
+23. Implementar sessões de usuário com revogação
+
+### Recomendações de Pacotes de Segurança
+
+| Pacote | Finalidade | Prioridade |
+|--------|-----------|-----------|
+| `helmet` | Headers de segurança HTTP | 🔴 Alta |
+| `express-rate-limit` | Rate limiting básico | 🔴 Alta |
+| `express-validator` | Validação e sanitização | 🔴 Alta |
+| `hpp` | Proteção parameter pollution | 🟡 Média |
+| `csurf` ou `csrf-csrf` | Proteção CSRF | 🟡 Média |
+| `rate-limit-redis` | Rate limit escalável | 🟢 Baixa (produção) |
+| `express-mongo-sanitize` | Sanitização NoSQL injection | 🟢 Baixa (se usar MongoDB) |
