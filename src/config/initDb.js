@@ -1,8 +1,20 @@
-const pool = require('./database');
+const AppDataSource = require('./database');
+const { getUserRepository, getUserPreferencesRepository } = require('../utils/repositories');
 const bcrypt = require('bcrypt');
+const logger = require('./logger');
 
 const createTables = async () => {
   try {
+    // Inicializar DataSource se ainda não estiver
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+      logger.info('TypeORM DataSource initialized for init-db');
+    }
+
+    // Usar query runner para executar SQL direto (manter compatibilidade)
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+
     // Criar função para atualizar updated_at automaticamente
     const createUpdateFunction = `
       CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -102,32 +114,50 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_user_preferences_theme_mode ON user_preferences(theme_mode);
     `;
 
-    await pool.query(createUpdateFunction);
-    await pool.query(createUsersTable);
-    await pool.query(createUpdateTrigger);
-    await pool.query(createIndexes);
-    await pool.query(createUserPreferencesTable);
-    await pool.query(createUserPreferencesTrigger);
-    await pool.query(createUserPreferencesIndexes);
+    // Executar todas as queries SQL
+    await queryRunner.query(createUpdateFunction);
+    await queryRunner.query(createUsersTable);
+    await queryRunner.query(createUpdateTrigger);
+    await queryRunner.query(createIndexes);
+    await queryRunner.query(createUserPreferencesTable);
+    await queryRunner.query(createUserPreferencesTrigger);
+    await queryRunner.query(createUserPreferencesIndexes);
 
-    // Criar usuário administrador padrão
+    // Liberar query runner
+    await queryRunner.release();
+
+    // Criar usuário administrador padrão usando TypeORM
     await createDefaultAdmin();
 
-    console.log('Tabelas, triggers, índices e usuário admin criados com sucesso!');
+    console.log('✅ Tabelas, triggers, índices e usuário admin criados com sucesso!');
+    logger.info('Database initialized successfully');
+
   } catch (error) {
-    console.error('Erro ao criar tabelas:', error);
+    console.error('❌ Erro ao criar tabelas:', error);
+    logger.error('Failed to initialize database', {
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
   }
 };
 
 const createDefaultAdmin = async () => {
   try {
-    // Verificar se já existe um usuário admin
-    const existingAdmin = await pool.query(
-      "SELECT id FROM users WHERE username = 'admin' OR email = 'admin@sistema.com'"
-    );
+    const userRepo = getUserRepository();
+    const preferencesRepo = getUserPreferencesRepository();
 
-    if (existingAdmin.rows.length > 0) {
-      console.log('Usuário administrador já existe');
+    // Verificar se já existe um usuário admin
+    const existingAdmin = await userRepo.findOne({
+      where: [
+        { username: 'admin' },
+        { email: 'admin@sistema.com' }
+      ]
+    });
+
+    if (existingAdmin) {
+      console.log('ℹ️  Usuário administrador já existe');
+      logger.info('Admin user already exists', { userId: existingAdmin.id });
       return;
     }
 
@@ -135,54 +165,58 @@ const createDefaultAdmin = async () => {
     const defaultPassword = 'admin123';
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
-    // Inserir usuário administrador
-    const insertAdmin = `
-      INSERT INTO users (
-        first_name,
-        last_name,
-        username,
-        email,
-        password_hash,
-        role,
-        email_verified,
-        status,
-        terms_accepted_at,
-        privacy_policy_accepted_at
-      ) VALUES (
-        'Administrador',
-        'Sistema',
-        'admin',
-        'admin@sistema.com',
-        $1,
-        'admin',
-        true,
-        'active',
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-      RETURNING id
-    `;
+    // Criar usuário administrador usando TypeORM
+    const admin = userRepo.create({
+      firstName: 'Administrador',
+      lastName: 'Sistema',
+      username: 'admin',
+      email: 'admin@sistema.com',
+      passwordHash,
+      role: 'admin',
+      emailVerified: true,
+      status: 'active',
+      termsAcceptedAt: new Date(),
+      privacyPolicyAcceptedAt: new Date()
+    });
 
-    const adminResult = await pool.query(insertAdmin, [passwordHash]);
-    const adminId = adminResult.rows[0].id;
+    const savedAdmin = await userRepo.save(admin);
 
-    // Criar preferências padrão para o admin
-    await pool.query(
-      `INSERT INTO user_preferences (
-        user_id, theme_mode, theme_color, font_size,
-        compact_mode, animations_enabled, high_contrast, reduce_motion
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [adminId, 'system', 'blue', 'medium', false, true, false, false]
-    );
+    // Criar preferências padrão para o admin usando TypeORM
+    const preferences = preferencesRepo.create({
+      userId: savedAdmin.id,
+      themeMode: 'system',
+      themeColor: 'blue',
+      fontSize: 'medium',
+      compactMode: false,
+      animationsEnabled: true,
+      highContrast: false,
+      reduceMotion: false
+    });
 
-    console.log('Usuário administrador criado:');
-    console.log('  Email: admin@sistema.com');
-    console.log('  Username: admin');
-    console.log('  Senha: admin123');
-    console.log('  IMPORTANTE: Altere a senha após o primeiro login!');
+    await preferencesRepo.save(preferences);
+
+    console.log('\n✅ Usuário administrador criado com sucesso!');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  📧 Email: admin@sistema.com');
+    console.log('  👤 Username: admin');
+    console.log('  🔑 Senha: admin123');
+    console.log('  🛡️  Role: admin');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('⚠️  IMPORTANTE: Altere a senha após o primeiro login!\n');
+
+    logger.info('Admin user created successfully', {
+      userId: savedAdmin.id,
+      username: savedAdmin.username,
+      email: savedAdmin.email
+    });
 
   } catch (error) {
-    console.error('Erro ao criar usuário administrador:', error);
+    console.error('❌ Erro ao criar usuário administrador:', error);
+    logger.error('Failed to create admin user', {
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
   }
 };
 
