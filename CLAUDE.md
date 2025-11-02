@@ -42,9 +42,17 @@ npm run docker:dev        # Desenvolvimento com rebuild
 
 - `src/` - Código fonte da aplicação
   - `app.js` - Configuração do Express
-  - `server.js` - Inicialização do servidor
-  - `config/` - Configurações (database, initDb, swagger, logger)
-  - `controllers/` - Controladores das rotas
+  - `server.js` - Inicialização do servidor + TypeORM DataSource
+  - `config/` - Configurações
+    - `database.js` - TypeORM DataSource (conexão PostgreSQL)
+    - `initDb.js` - Inicialização do banco com TypeORM
+    - `swagger.js` - Configuração Swagger
+    - `logger.js` - Sistema de logging Winston
+    - `email.js` - Configuração de email (nodemailer)
+  - `entities/` - Entidades TypeORM (EntitySchema)
+    - `User.js` - Entidade User (42 campos)
+    - `UserPreferences.js` - Entidade UserPreferences (10 campos)
+  - `controllers/` - Controladores das rotas (migrados para TypeORM)
     - `userController.js` - CRUD de usuários e autenticação
     - `passwordResetController.js` - Reset de senha
     - `preferencesController.js` - Preferências de usuário
@@ -52,12 +60,18 @@ npm run docker:dev        # Desenvolvimento com rebuild
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
     - `preferences.js` - Rotas de preferências
-  - `middleware/` - Middlewares (auth, errorHandler, requestLogger)
+  - `middleware/` - Middlewares
+    - `auth.js` - Autenticação JWT + RBAC
+    - `errorHandler.js` - Tratamento de erros
+    - `requestLogger.js` - Logger de requisições HTTP
   - `templates/` - Templates de email
   - `utils/` - Utilitários
+    - `repositories.js` - Helpers para repositórios TypeORM
+    - `responses.js` - Respostas padronizadas
+    - `tokenGenerator.js` - Geração de tokens seguros
 - `__tests__/` - Testes Jest
 - `scripts/` - Scripts utilitários
-  - `init-db.js` - Inicialização do banco
+  - `init-db.js` - Inicialização do banco (TypeORM)
   - `migrate.js` - Sistema de migrations
 - `migrations/` - Arquivos SQL de migrations
 - `logs/` - Arquivos de log gerados pelo winston (gitignored)
@@ -66,11 +80,12 @@ npm run docker:dev        # Desenvolvimento com rebuild
 
 - **Node.js** - Runtime JavaScript
 - **Express** - Framework web
+- **TypeORM** - ORM (Object-Relational Mapping) com EntitySchema pattern
+- **reflect-metadata** - Necessário para TypeORM
 - **PostgreSQL** - Banco de dados
 - **Jest** - Framework de testes
 - **Supertest** - Testes de API
 - **dotenv** - Gerenciamento de variáveis de ambiente
-- **pg** - Driver PostgreSQL para Node.js
 - **cors** - Middleware para Cross-Origin Resource Sharing
 - **jsonwebtoken** - Autenticação JWT
 - **bcryptjs** - Hash de senhas
@@ -81,12 +96,30 @@ npm run docker:dev        # Desenvolvimento com rebuild
 
 ## Configuração do Banco
 
-O projeto usa PostgreSQL com as seguintes configurações padrão no `.env`:
+O projeto usa **TypeORM** com PostgreSQL. As configurações ficam no `.env`:
 - Host: localhost
 - Porta: 5432
 - Banco: api_db
 - Usuário: postgres
 - Senha: password
+
+### TypeORM DataSource
+O DataSource é configurado em `src/config/database.js` e inicializado automaticamente no `src/server.js` antes do servidor Express iniciar.
+
+```javascript
+const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  username: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
+  database: process.env.DB_NAME || 'api_db',
+  synchronize: false, // NUNCA use true em produção
+  logging: false,
+  entities: [__dirname + '/../entities/**/*.js'],
+  migrations: [], // Migrations TypeORM desabilitadas (usando SQL manual)
+});
+```
 
 ## Configuração CORS
 
@@ -162,6 +195,151 @@ logger.debug('Debug message', { data: someData });
   - Tempo de resposta (duration)
   - ID do usuário (se autenticado)
 - **Erros não tratados** são capturados e logados automaticamente
+
+## Trabalhando com TypeORM
+
+Este projeto usa **TypeORM** com EntitySchema pattern (JavaScript puro, sem decorators).
+
+### Acessando Repositórios
+
+Use os helpers de `src/utils/repositories.js`:
+
+```javascript
+const { getUserRepository, getUserPreferencesRepository } = require('../utils/repositories');
+
+const userRepo = getUserRepository();
+const preferencesRepo = getUserPreferencesRepository();
+```
+
+### Operações Comuns
+
+#### 1. Buscar (Find)
+```javascript
+// Por ID
+const user = await userRepo.findOne({ where: { id: userId } });
+
+// Com condições
+const user = await userRepo.findOne({
+  where: { email: 'user@example.com', status: 'active' }
+});
+
+// Listar todos
+const users = await userRepo.find();
+
+// Com select específico
+const user = await userRepo.findOne({
+  where: { id: userId },
+  select: ['id', 'firstName', 'email']
+});
+```
+
+#### 2. Criar e Salvar
+```javascript
+// Criar entidade
+const user = userRepo.create({
+  firstName: 'João',
+  lastName: 'Silva',
+  email: 'joao@example.com',
+  passwordHash: hashedPassword,
+  role: 'user'
+});
+
+// Salvar no banco
+await userRepo.save(user);
+```
+
+#### 3. Atualizar
+```javascript
+// Atualizar por ID
+await userRepo.update(
+  { id: userId },
+  { firstName: 'João Silva', status: 'active' }
+);
+
+// Ou buscar, modificar e salvar
+const user = await userRepo.findOne({ where: { id: userId } });
+user.firstName = 'João Silva';
+await userRepo.save(user);
+```
+
+#### 4. Deletar
+```javascript
+// Soft delete (recomendado - preenche deletedAt)
+await userRepo.softDelete({ id: userId });
+
+// Hard delete (remove permanentemente)
+await userRepo.delete({ id: userId });
+```
+
+#### 5. Queries Complexas (Query Builder)
+```javascript
+// Login com username OU email
+const user = await userRepo.createQueryBuilder('user')
+  .where('(user.username = :login OR user.email = :login)', { login })
+  .andWhere('user.deletedAt IS NULL')
+  .select(['user.id', 'user.passwordHash', 'user.email', 'user.username'])
+  .getOne();
+
+// Paginação
+const [users, total] = await userRepo.createQueryBuilder('user')
+  .where('user.status = :status', { status: 'active' })
+  .skip((page - 1) * limit)
+  .take(limit)
+  .getManyAndCount();
+```
+
+#### 6. Raw SQL (quando necessário)
+```javascript
+const AppDataSource = require('../config/database');
+
+const queryRunner = AppDataSource.createQueryRunner();
+await queryRunner.connect();
+
+await queryRunner.query(`
+  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
+`);
+
+await queryRunner.release();
+```
+
+### Entidades Disponíveis
+
+#### User (`src/entities/User.js`)
+- **42 campos** incluindo id, firstName, lastName, username, email, passwordHash, role, status, etc.
+- Relacionamento **one-to-one** com UserPreferences
+- **Soft delete** habilitado (campo deletedAt)
+
+#### UserPreferences (`src/entities/UserPreferences.js`)
+- **10 campos** de preferências de interface (theme, fontSize, etc.)
+- Foreign key para User (userId)
+- **Cascade delete** automático quando usuário é removido
+
+### Mapeamento de Campos
+
+TypeORM mapeia automaticamente camelCase ↔ snake_case:
+
+| JavaScript (código) | PostgreSQL (banco) |
+|---------------------|-------------------|
+| `firstName`         | `first_name`      |
+| `lastName`          | `last_name`       |
+| `passwordHash`      | `password_hash`   |
+| `emailVerified`     | `email_verified`  |
+
+### Importante: Migrations
+
+⚠️ As migrations TypeORM estão **desabilitadas** (`migrations: []`).
+
+O projeto usa migrations SQL manuais em `src/migrations/`. Para modificar o schema:
+1. Crie migration SQL em `src/migrations/`
+2. Execute com `npm run migrate:up`
+3. **Sempre** atualize a entidade correspondente em `src/entities/`
+
+### Referências
+
+- [TypeORM Documentation](https://typeorm.io)
+- [EntitySchema](https://typeorm.io/entity-schema)
+- [Repository API](https://typeorm.io/repository-api)
+- [Query Builder](https://typeorm.io/select-query-builder)
 
 ## Comandos de Lint/TypeCheck
 
