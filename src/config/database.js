@@ -18,10 +18,8 @@ const AppDataSource = new DataSource({
     __dirname + '/../entities/**/*.js'
   ],
 
-  // Migrations (para uso futuro)
-  migrations: [
-    __dirname + '/../migrations/**/*.js'
-  ],
+  // Migrations (desabilitado por enquanto - não migradas ainda)
+  migrations: [],
 
   // Subscribers (eventos)
   subscribers: [],
