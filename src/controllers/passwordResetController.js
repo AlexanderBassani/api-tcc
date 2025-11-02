@@ -1,4 +1,5 @@
-const pool = require('../config/database');
+const { getUserRepository } = require('../utils/repositories');
+const { MoreThan } = require('typeorm');
 const bcrypt = require('bcrypt');
 const { generatePasswordResetToken, hashToken } = require('../utils/tokenGenerator');
 const { sendEmail } = require('../config/email');
@@ -10,6 +11,7 @@ const passwordResetEmail = require('../templates/passwordResetEmail');
  */
 const requestPasswordReset = async (req, res) => {
   try {
+    const userRepo = getUserRepository();
     const { email } = req.body;
 
     if (!email) {
@@ -17,19 +19,17 @@ const requestPasswordReset = async (req, res) => {
     }
 
     // Buscar usuário por email
-    const result = await pool.query(
-      'SELECT id, first_name, email, status FROM users WHERE email = $1',
-      [email.toLowerCase()]
-    );
+    const user = await userRepo.findOne({
+      where: { email: email.toLowerCase() },
+      select: ['id', 'firstName', 'email', 'status']
+    });
 
     // Por segurança, sempre retorna sucesso mesmo se o email não existir
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(200).json({
         message: 'Se o email existir em nossa base, você receberá instruções para redefinir sua senha'
       });
     }
-
-    const user = result.rows[0];
 
     // Verificar se a conta está ativa
     if (user.status !== 'active') {
@@ -42,17 +42,19 @@ const requestPasswordReset = async (req, res) => {
     const { token, hashedToken, expiresAt } = generatePasswordResetToken(30); // 30 minutos
 
     // Salvar token hasheado no banco
-    // Important: Convert Date to ISO string to ensure proper timezone handling in PostgreSQL
-    await pool.query(
-      'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
-      [hashedToken, expiresAt.toISOString(), user.id]
+    await userRepo.update(
+      { id: user.id },
+      {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: expiresAt
+      }
     );
 
     // Criar URL de reset
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
 
     // Enviar email
-    const emailTemplate = passwordResetEmail(user.first_name, resetUrl);
+    const emailTemplate = passwordResetEmail(user.firstName, resetUrl);
 
     await sendEmail({
       to: user.email,
@@ -89,6 +91,7 @@ const requestPasswordReset = async (req, res) => {
  */
 const validateResetToken = async (req, res) => {
   try {
+    const userRepo = getUserRepository();
     const { token } = req.body;
 
     if (!token) {
@@ -99,16 +102,16 @@ const validateResetToken = async (req, res) => {
     const hashedToken = hashToken(token);
 
     // Buscar usuário com o token válido
-    const result = await pool.query(
-      `SELECT id, email, password_reset_token, password_reset_expires, status
-       FROM users
-        WHERE password_reset_token = $1
-        AND password_reset_expires > CURRENT_TIMESTAMP
-        AND status = 'active'`,
-      [hashedToken]
-    );
+    const user = await userRepo.findOne({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: MoreThan(new Date()),
+        status: 'active'
+      },
+      select: ['id', 'email', 'passwordResetToken', 'passwordResetExpires', 'status']
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(400).json({
         error: 'Token inválido ou expirado. Solicite um novo reset de senha.'
       });
@@ -116,7 +119,7 @@ const validateResetToken = async (req, res) => {
 
     res.status(200).json({
       message: 'Token válido',
-      email: result.rows[0].email
+      email: user.email
     });
 
   } catch (error) {
@@ -131,6 +134,7 @@ const validateResetToken = async (req, res) => {
  */
 const resetPassword = async (req, res) => {
   try {
+    const userRepo = getUserRepository();
     const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
@@ -150,35 +154,34 @@ const resetPassword = async (req, res) => {
     const hashedToken = hashToken(token);
 
     // Buscar usuário com token válido
-    const result = await pool.query(
-      `SELECT id, email, first_name FROM users
-       WHERE password_reset_token = $1
-       AND password_reset_expires > CURRENT_TIMESTAMP
-       AND status = 'active'`,
-      [hashedToken]
-    );
+    const user = await userRepo.findOne({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: MoreThan(new Date()),
+        status: 'active'
+      },
+      select: ['id', 'email', 'firstName']
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(400).json({
         error: 'Token inválido ou expirado. Solicite um novo reset de senha.'
       });
     }
 
-    const user = result.rows[0];
-
     // Gerar hash da nova senha
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     // Atualizar senha e limpar tokens de reset
-    await pool.query(
-      `UPDATE users
-       SET password_hash = $1,
-           password_reset_token = NULL,
-           password_reset_expires = NULL,
-           login_attempts = 0,
-           locked_until = NULL
-       WHERE id = $2`,
-      [passwordHash, user.id]
+    await userRepo.update(
+      { id: user.id },
+      {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        loginAttempts: 0,
+        lockedUntil: null
+      }
     );
 
     res.status(200).json({
