@@ -1,6 +1,6 @@
-# API Node.js com Express, JWT e PostgreSQL
+# API Node.js com Express, JWT, TypeORM e PostgreSQL
 
-Uma API RESTful construída com Node.js, Express, autenticação JWT, Jest para testes e PostgreSQL como banco de dados, com suporte completo a Docker e hot-reload.
+Uma API RESTful construída com Node.js, Express, TypeORM, autenticação JWT, Jest para testes e PostgreSQL como banco de dados, com suporte completo a Docker e hot-reload.
 
 ## 🚀 Instalação Rápida com Docker (Recomendado)
 
@@ -209,17 +209,23 @@ Quando um usuário sem permissão tenta acessar uma rota protegida:
 ```
 src/
 ├── config/          # Configurações
-│   ├── database.js      # Conexão PostgreSQL
+│   ├── database.js      # TypeORM DataSource (conexão PostgreSQL)
 │   ├── email.js         # Configuração de email (nodemailer)
-│   └── initDb.js        # Inicialização do banco
+│   ├── initDb.js        # Inicialização do banco
+│   ├── logger.js        # Sistema de logging (Winston)
+│   └── swagger.js       # Configuração Swagger
 ├── controllers/     # Controladores
 │   ├── userController.js            # CRUD de usuários + auth
 │   ├── passwordResetController.js   # Reset de senha
 │   └── preferencesController.js     # Preferências do usuário
+├── entities/        # Entidades TypeORM
+│   ├── User.js              # Entidade User (EntitySchema)
+│   └── UserPreferences.js   # Entidade UserPreferences (EntitySchema)
 ├── middleware/      # Middlewares
-│   ├── auth.js          # Autenticação JWT
-│   └── errorHandler.js  # Tratamento de erros
-├── migrations/      # Migrations do banco
+│   ├── auth.js          # Autenticação JWT + RBAC
+│   ├── errorHandler.js  # Tratamento de erros
+│   └── requestLogger.js # Logger de requisições HTTP
+├── migrations/      # Migrations do banco (SQL)
 ├── routes/          # Rotas da API
 │   ├── userRoutes.js       # Rotas de usuários
 │   ├── passwordReset.js    # Rotas de reset de senha
@@ -227,12 +233,14 @@ src/
 ├── templates/       # Templates de email
 │   └── passwordResetEmail.js  # Template de reset de senha
 ├── utils/           # Utilitários
-│   ├── responses.js     # Respostas padronizadas
+│   ├── repositories.js    # Helper para repositórios TypeORM
+│   ├── responses.js       # Respostas padronizadas
 │   └── tokenGenerator.js  # Geração de tokens seguros
 ├── app.js          # Configuração do Express
-└── server.js       # Inicialização do servidor
+└── server.js       # Inicialização do servidor + TypeORM
 __tests__/          # Testes Jest
 scripts/            # Scripts utilitários (init-db, migrate)
+logs/               # Arquivos de log (Winston) - gitignored
 .vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
 docker-compose.yml  # Orquestração dos serviços
@@ -401,13 +409,191 @@ O projeto inclui os seguintes serviços:
 ## 🔧 Tecnologias Utilizadas
 
 - **Backend:** Node.js, Express
-- **Banco:** PostgreSQL, pg (driver)
+- **ORM:** TypeORM (EntitySchema pattern)
+- **Banco:** PostgreSQL
 - **Autenticação:** JWT (jsonwebtoken)
 - **Segurança:** bcrypt/bcryptjs para hash de senhas
 - **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
 - **Infraestrutura:** Docker, Docker Compose
-- **Desenvolvimento:** nodemon (hot-reload), dotenv
+- **Desenvolvimento:** nodemon (hot-reload), dotenv, reflect-metadata
+
+## 🏗️ Arquitetura TypeORM
+
+Este projeto utiliza **TypeORM** como camada de abstração do banco de dados, facilitando operações com PostgreSQL e permitindo futuras migrações para outros bancos de dados.
+
+### Por que TypeORM?
+
+- ✅ **Abstração de banco de dados** - Facilita migração entre diferentes SGBDs
+- ✅ **Repository Pattern** - Acesso limpo e organizado aos dados
+- ✅ **Query Builder** - Queries complexas de forma type-safe
+- ✅ **Migrations integradas** - Controle de versão do schema
+- ✅ **Relacionamentos automáticos** - Join automático entre entidades
+- ✅ **Performance** - Pool de conexões otimizado
+
+### EntitySchema Pattern
+
+O projeto usa **EntitySchema** ao invés de decorators, permitindo uso com JavaScript puro sem necessidade de TypeScript:
+
+```javascript
+// src/entities/User.js
+const { EntitySchema } = require('typeorm');
+
+const User = new EntitySchema({
+  name: 'User',
+  tableName: 'users',
+  columns: {
+    id: { type: 'int', primary: true, generated: true },
+    firstName: { type: 'varchar', length: 50, name: 'first_name' },
+    email: { type: 'varchar', length: 100, unique: true },
+    // ... outros campos
+  },
+  relations: {
+    preferences: {
+      type: 'one-to-one',
+      target: 'UserPreferences',
+      cascade: true
+    }
+  }
+});
+```
+
+### DataSource (Conexão)
+
+```javascript
+// src/config/database.js
+const { DataSource } = require('typeorm');
+
+const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  username: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
+  database: process.env.DB_NAME || 'api_db',
+  synchronize: false, // Nunca use true em produção!
+  logging: false,
+  entities: [__dirname + '/../entities/**/*.js'],
+  migrations: [],
+});
+```
+
+### Repository Pattern
+
+O projeto usa helpers para acesso aos repositórios:
+
+```javascript
+// src/utils/repositories.js
+const getUserRepository = () => AppDataSource.getRepository('User');
+const getUserPreferencesRepository = () => AppDataSource.getRepository('UserPreferences');
+
+// Uso nos controllers
+const userRepo = getUserRepository();
+const user = await userRepo.findOne({ where: { id: 1 } });
+```
+
+### Tipos de Queries
+
+#### 1. Queries Simples (Repository Methods)
+```javascript
+// Buscar por ID
+const user = await userRepo.findOne({ where: { id: userId } });
+
+// Buscar com condições
+const user = await userRepo.findOne({
+  where: { email: 'user@example.com', status: 'active' }
+});
+
+// Listar todos
+const users = await userRepo.find();
+
+// Criar e salvar
+const user = userRepo.create({ firstName: 'João', email: 'joao@example.com' });
+await userRepo.save(user);
+
+// Atualizar
+await userRepo.update({ id: 1 }, { firstName: 'João Silva' });
+
+// Soft delete
+await userRepo.softDelete({ id: 1 });
+
+// Hard delete
+await userRepo.delete({ id: 1 });
+```
+
+#### 2. Queries Complexas (Query Builder)
+```javascript
+// Login com username OU email
+const user = await userRepo.createQueryBuilder('user')
+  .where('(user.username = :login OR user.email = :login)', { login })
+  .andWhere('user.deletedAt IS NULL')
+  .select(['user.id', 'user.passwordHash', 'user.email'])
+  .getOne();
+
+// Busca com paginação
+const [users, total] = await userRepo.createQueryBuilder('user')
+  .where('user.status = :status', { status: 'active' })
+  .skip(skip)
+  .take(limit)
+  .getManyAndCount();
+```
+
+#### 3. Raw SQL (QueryRunner)
+```javascript
+// Para operações especiais (triggers, functions, etc)
+const queryRunner = AppDataSource.createQueryRunner();
+await queryRunner.query(`
+  CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+`);
+await queryRunner.release();
+```
+
+### Entidades Disponíveis
+
+#### User (src/entities/User.js)
+- 42 campos incluindo: id, firstName, lastName, username, email, passwordHash, role, status, etc.
+- Relacionamento one-to-one com UserPreferences
+- Soft delete habilitado (campo deletedAt)
+
+#### UserPreferences (src/entities/UserPreferences.js)
+- 10 campos de preferências de interface e tema
+- Foreign key para User (userId)
+- Cascade delete automático
+
+### Migrations
+
+Atualmente as migrations estão desabilitadas no TypeORM (`migrations: []`), pois o projeto usa migrations SQL manuais em `src/migrations/`. No futuro, pode-se migrar para migrations TypeORM:
+
+```javascript
+// Exemplo de migration TypeORM (futuro)
+class AddPhoneToUser1234567890 {
+  async up(queryRunner) {
+    await queryRunner.query(`ALTER TABLE users ADD phone VARCHAR(20)`);
+  }
+
+  async down(queryRunner) {
+    await queryRunner.query(`ALTER TABLE users DROP COLUMN phone`);
+  }
+}
+```
+
+### Benefícios da Migração para TypeORM
+
+✅ **Concluído:**
+- 100% dos controllers migrados (userController, passwordResetController, preferencesController)
+- Scripts de inicialização migrados (init-db.js)
+- Pool de conexões gerenciado automaticamente
+- Queries SQL substituídas por repository methods
+- Relacionamentos entre entidades funcionando
+- Testes validados (login, profile, preferences)
+
+🎯 **Próximos Passos:**
+- Migrar tests para usar repositories TypeORM
+- Converter migrations SQL para migrations TypeORM
+- Adicionar mais entidades conforme necessário
 
 ## 🐛 Debug
 
@@ -445,7 +631,7 @@ npm run docker:logs
 
 ## 🗃️ Sistema de Migrations
 
-O projeto inclui um sistema completo de migrations para gerenciar mudanças no banco de dados:
+O projeto inclui um sistema completo de migrations SQL para gerenciar mudanças no banco de dados:
 
 ### Características
 - ✅ Controle de versão do banco de dados
@@ -454,31 +640,49 @@ O projeto inclui um sistema completo de migrations para gerenciar mudanças no b
 - ✅ Tabela `migrations` para controle
 - ✅ Comandos simples via npm scripts
 
+### Status Atual: Migrations SQL
+
+Atualmente o projeto usa **migrations SQL manuais** localizadas em `src/migrations/`. As migrations TypeORM estão desabilitadas (`migrations: []` no DataSource).
+
 ### Criar uma nova migration
 1. Crie um arquivo em `src/migrations/` seguindo o padrão: `XXX_descricao.js`
-2. Implemente as funções `up()` e `down()`
+2. Implemente as funções `up()` e `down()` usando QueryRunner
 3. Execute com `npm run migrate:up`
 
 ### Exemplo de migration
 ```javascript
-const pool = require('../config/database');
+const AppDataSource = require('../config/database');
 
 const up = async () => {
-  await pool.query(`
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+
+  await queryRunner.query(`
     ALTER TABLE users
     ADD COLUMN new_field VARCHAR(100)
   `);
+
+  await queryRunner.release();
 };
 
 const down = async () => {
-  await pool.query(`
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+
+  await queryRunner.query(`
     ALTER TABLE users
     DROP COLUMN new_field
   `);
+
+  await queryRunner.release();
 };
 
 module.exports = { up, down };
 ```
+
+### Migração futura para TypeORM Migrations
+
+No futuro, as migrations podem ser convertidas para o formato nativo do TypeORM. Veja mais detalhes na seção "Arquitetura TypeORM".
 
 ## 📧 Sistema de Reset de Senha
 
@@ -533,44 +737,45 @@ A documentação interativa completa está disponível via Swagger UI:
 9. ~~Documentar API com Swagger~~ ✅
 10. ~~Implementar sistema de preferências de usuário~~ ✅
 11. ~~Sistema de logging profissional com Winston~~ ✅
+12. ~~Migrar para TypeORM (Entity Schema pattern)~~ ✅
 
 ### Segurança (Próxima Prioridade)
-12. **Implementar Helmet** - Headers de segurança HTTP
+13. **Implementar Helmet** - Headers de segurança HTTP
     - Proteção XSS, clickjacking, MIME sniffing
     - Content Security Policy (CSP)
     - HSTS (HTTP Strict Transport Security)
     - Pacote: `helmet`
 
-13. **Implementar Rate Limiting** - Proteção contra ataques DDoS/brute force
+14. **Implementar Rate Limiting** - Proteção contra ataques DDoS/brute force
     - Limitar requisições por IP
     - Limitar tentativas de login
     - Rate limit diferenciado por rota
     - Pacotes: `express-rate-limit` + `rate-limit-redis` (para produção escalável)
 
-14. **Implementar Validação e Sanitização de Dados**
+15. **Implementar Validação e Sanitização de Dados**
     - Validação robusta de inputs
     - Sanitização contra XSS
     - Prevenção de SQL/NoSQL Injection
     - Pacote: `express-validator` (recomendado) ou `joi`
 
-15. **Implementar proteção HTTP Parameter Pollution (HPP)**
+16. **Implementar proteção HTTP Parameter Pollution (HPP)**
     - Proteção contra poluição de parâmetros
     - Prevenir arrays maliciosos em query strings
     - Pacote: `hpp`
 
-16. **Implementar CSRF Protection**
+17. **Implementar CSRF Protection**
     - Proteção contra Cross-Site Request Forgery
     - Tokens CSRF para formulários
     - Pacote: `csurf` ou `csrf-csrf`
 
 ### Funcionalidades Adicionais
-17. Implementar verificação de email
-18. Adicionar upload de imagem de perfil (com validação e limite de tamanho)
-19. Implementar 2FA (Two-Factor Authentication)
-20. Adicionar logs de auditoria para ações críticas
-21. Implementar política de senha forte (complexidade mínima)
-22. Adicionar notificação de login suspeito
-23. Implementar sessões de usuário com revogação
+18. Implementar verificação de email
+19. Adicionar upload de imagem de perfil (com validação e limite de tamanho)
+20. Implementar 2FA (Two-Factor Authentication)
+21. Adicionar logs de auditoria para ações críticas
+22. Implementar política de senha forte (complexidade mínima)
+23. Adicionar notificação de login suspeito
+24. Implementar sessões de usuário com revogação
 
 ### Recomendações de Pacotes de Segurança
 
