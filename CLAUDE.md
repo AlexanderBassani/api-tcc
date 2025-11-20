@@ -384,11 +384,23 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
 ## Notas para Desenvolvimento
 
 ### Importante para o Claude Code
-⚠️ **Regras de Commit:**
+
+⚠️ **REGRAS OBRIGATÓRIAS:**
+
+#### Commits e Push
 - **NÃO** fazer commit automaticamente após alterações
 - **NÃO** fazer push automaticamente
+- **APENAS** fazer commit/push quando **EXPLICITAMENTE** solicitado pelo usuário
+- Se o usuário pedir "faça commit", fazer commit mas **NÃO** fazer push
+- Se o usuário pedir "faça commit e push", fazer ambos
 - Sempre atualizar `.env.example` quando modificar `.env`
-- Apenas fazer commit/push quando explicitamente solicitado pelo usuário
+
+#### Testes
+- **SEMPRE** executar `npm test` após finalizar qualquer modificação no código
+- Se os testes falharem, **NÃO** fazer commit/push
+- Corrigir os problemas até todos os testes passarem
+- Informar ao usuário os resultados dos testes
+- Se novos testes forem necessários, sugerir ao usuário
 
 ### Desenvolvimento Local
 - O servidor roda na porta 3000 por padrão
@@ -406,8 +418,16 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
 
 ## Workflow de Desenvolvimento
 
+### Workflow Padrão para Modificações
+1. Fazer as alterações solicitadas
+2. **EXECUTAR TESTES**: `npm test` para validar que nada quebrou
+3. Corrigir qualquer erro encontrado nos testes
+4. Informar ao usuário sobre os resultados
+5. **AGUARDAR** solicitação explícita do usuário para commit/push
+
 ### Ao modificar variáveis de ambiente
 1. Editar `.env` com os novos valores
 2. Atualizar `.env.example` removendo valores sensíveis
 3. Documentar no CLAUDE.md e README.md se necessário
-4. Aguardar solicitação do usuário para commit/push
+4. Executar testes para validar
+5. Aguardar solicitação do usuário para commit/push
