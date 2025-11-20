@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const pool = require('../src/config/database');
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
 
 describe('User Routes API', () => {
   let authToken;
@@ -263,11 +264,14 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('getbyid');
+      const testEmail = generateTestEmail('getbyid.test');
+
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['GetById', 'Test', 'getbyid_test', 'getbyid.test@test.com', hashedPassword, 'user', 'active']
+        ['GetById', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const userId = userResult.rows[0].id;
@@ -275,7 +279,7 @@ describe('User Routes API', () => {
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'getbyid_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -288,27 +292,29 @@ describe('User Routes API', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('data');
       expect(response.body.data.id).toBe(userId);
-      expect(response.body.data.username).toBe('getbyid_test');
+      expect(response.body.data.username).toBe(testUsername);
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should fail with invalid ID format', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('invalid');
+      const testEmail = generateTestEmail('invalid.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Invalid', 'Test', 'invalid_test', 'invalid.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Invalid', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'invalid_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -322,7 +328,7 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['invalid_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
   });
 
@@ -331,17 +337,19 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('profile');
+      const testEmail = generateTestEmail('profile.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Profile', 'Test', 'profile_test', 'profile.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Profile', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'profile_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -352,12 +360,12 @@ describe('User Routes API', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('username', 'profile_test');
-      expect(response.body).toHaveProperty('email', 'profile.test@test.com');
+      expect(response.body).toHaveProperty('username', testUsername);
+      expect(response.body).toHaveProperty('email', testEmail);
       expect(response.body).not.toHaveProperty('password_hash');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['profile_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
   });
 
@@ -366,17 +374,19 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('update');
+      const testEmail = generateTestEmail('update.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Update', 'Test', 'update_test', 'update.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Update', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'update_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -395,7 +405,7 @@ describe('User Routes API', () => {
       expect(response.body.user.first_name).toBe('Updated');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['update_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
   });
 
@@ -404,17 +414,19 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('oldpass123', 10);
 
+      const testUsername = generateTestUsername('chpass');
+      const testEmail = generateTestEmail('chpass.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Change', 'Pass', 'changepass_test', 'changepass.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Change', 'Pass', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'changepass_test',
+          login: testUsername,
           password: 'oldpass123'
         });
 
@@ -433,24 +445,26 @@ describe('User Routes API', () => {
       expect(response.body.message).toContain('Senha alterada com sucesso');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['changepass_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should fail with wrong current password', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('correctpass', 10);
 
+      const testUsername = generateTestUsername('wrpass');
+      const testEmail = generateTestEmail('wrpass.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Wrong', 'Pass', 'wrongpass_test', 'wrongpass.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Wrong', 'Pass', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'wrongpass_test',
+          login: testUsername,
           password: 'correctpass'
         });
 
@@ -469,7 +483,7 @@ describe('User Routes API', () => {
       expect(response.body.error).toContain('incorreta');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['wrongpass_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
   });
 
@@ -478,17 +492,19 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('refresh');
+      const testEmail = generateTestEmail('refresh.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Refresh', 'Test', 'refresh_test', 'refresh.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Refresh', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'refresh_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -503,7 +519,7 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('refreshToken');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['refresh_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should fail without refresh token', async () => {
@@ -521,17 +537,19 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('logout');
+      const testEmail = generateTestEmail('logout.test');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Logout', 'Test', 'logout_test', 'logout.test@test.com', hashedPassword, 'user', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Logout', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'logout_test',
+          login: testUsername,
           password: 'testpass123'
         });
 
@@ -545,7 +563,7 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('message', 'Logout realizado com sucesso');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['logout_test']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should fail logout without token', async () => {
@@ -572,12 +590,17 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('deact');
+      const testEmail = generateTestEmail('deact.test');
+      const adminUsername = generateTestUsername('admin_deact');
+      const adminEmail = generateTestEmail('admin.deact');
+
       // Criar usuário para deativar
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['Deactivate', 'Test', 'deactivate_test', 'deactivate.test@test.com', hashedPassword, 'user', 'active']
+        ['Deactivate', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const userId = userResult.rows[0].id;
@@ -586,15 +609,15 @@ describe('User Routes API', () => {
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Admin', 'Deactivate', 'admin_deactivate_test', 'admin.deactivate@test.com', hashedPassword, 'admin', 'active']
+          RETURNING id`,
+        ['Admin', 'Deactivate', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       // Fazer login como admin para obter token
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'admin_deactivate_test',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -611,20 +634,24 @@ describe('User Routes API', () => {
       expect(response.body.data.id).toBe(userId);
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-      await pool.query('DELETE FROM users WHERE username = $1', ['admin_deactivate_test']);
+      await pool.query('DELETE FROM users WHERE username = $1 OR username = $2', [testUsername, adminUsername]);
     });
 
     test('Should fail to deactivate already inactive user', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('inactive');
+      const testEmail = generateTestEmail('inactive.t');
+      const adminUsername = generateTestUsername('admin_deact2');
+      const adminEmail = generateTestEmail('admin.deact2');
+
       // Criar usuário inativo
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['Already', 'Inactive', 'inactive_test', 'inactive.test@test.com', hashedPassword, 'user', 'inactive']
+        ['Already', 'Inactive', testUsername, testEmail, hashedPassword, 'user', 'inactive']
       );
 
       const userId = userResult.rows[0].id;
@@ -633,14 +660,14 @@ describe('User Routes API', () => {
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'Admin', 'auth_deactivate', 'auth.deactivate@test.com', hashedPassword, 'admin', 'active']
+          RETURNING id`,
+        ['Auth', 'Admin', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_deactivate',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -654,8 +681,7 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error', 'Usuário já está inativo');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_deactivate']);
+      await pool.query('DELETE FROM users WHERE username = $1 OR username = $2', [testUsername, adminUsername]);
     });
 
     test('Should fail to deactivate non-existent user', async () => {
@@ -734,12 +760,17 @@ describe('User Routes API', () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('del');
+      const testEmail = generateTestEmail('del.test');
+      const adminUsername = generateTestUsername('admin_del');
+      const adminEmail = generateTestEmail('admin.del');
+
       // Criar usuário para deletar
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['Delete', 'Test', 'delete_test', 'delete.test@test.com', hashedPassword, 'user', 'active']
+        ['Delete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const userId = userResult.rows[0].id;
@@ -748,14 +779,14 @@ describe('User Routes API', () => {
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'Delete', 'auth_delete', 'auth.delete@test.com', hashedPassword, 'admin', 'active']
+          RETURNING id`,
+        ['Auth', 'Delete', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_delete',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -777,20 +808,24 @@ describe('User Routes API', () => {
       expect(checkResult.rows[0].status).toBe('inactive');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_delete']);
+      await pool.query('DELETE FROM users WHERE username = $1 OR username = $2', [testUsername, adminUsername]);
     });
 
     test('Should hard delete user successfully', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('hdel');
+      const testEmail = generateTestEmail('hdel.test');
+      const adminUsername = generateTestUsername('admin_hdel');
+      const adminEmail = generateTestEmail('admin.hdel');
+
       // Criar usuário para deletar
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['HardDelete', 'Test', 'harddelete_test', 'harddelete.test@test.com', hashedPassword, 'user', 'active']
+        ['HardDelete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
 
       const userId = userResult.rows[0].id;
@@ -799,14 +834,14 @@ describe('User Routes API', () => {
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'HardDelete', 'auth_harddelete', 'auth.harddelete@test.com', hashedPassword, 'admin', 'active']
+          RETURNING id`,
+        ['Auth', 'HardDelete', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_harddelete',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -826,19 +861,24 @@ describe('User Routes API', () => {
       expect(checkResult.rows.length).toBe(0);
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_harddelete']);
+      await pool.query('DELETE FROM users WHERE username = $1', [adminUsername]);
     });
 
     test('Should fail to soft delete already deleted user', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const testUsername = generateTestUsername('aldel');
+      const testEmail = generateTestEmail('aldel.test');
+      const adminUsername = generateTestUsername('admin_aldel');
+      const adminEmail = generateTestEmail('admin.aldel');
+
       // Criar usuário já deletado
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status, deleted_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
           RETURNING id`,
-        ['Already', 'Deleted', 'alreadydeleted_test', 'alreadydeleted.test@test.com', hashedPassword, 'user', 'inactive']
+        ['Already', 'Deleted', testUsername, testEmail, hashedPassword, 'user', 'inactive']
       );
 
       const userId = userResult.rows[0].id;
@@ -846,15 +886,14 @@ describe('User Routes API', () => {
       // Criar admin para obter token
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'AlreadyDeleted', 'auth_alreadydeleted', 'auth.alreadydeleted@test.com', hashedPassword, 'admin', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Auth', 'AlreadyDeleted', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_alreadydeleted',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -868,25 +907,26 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error', 'Usuário já foi removido');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_alreadydeleted']);
+      await pool.query('DELETE FROM users WHERE username = $1 OR username = $2', [testUsername, adminUsername]);
     });
 
     test('Should fail to delete non-existent user', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const adminUsername = generateTestUsername('admin_nex');
+      const adminEmail = generateTestEmail('admin.nex');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'Nonexist', 'auth_nonexist', 'auth.nonexist@test.com', hashedPassword, 'admin', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Auth', 'Nonexist', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_nonexist',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -900,24 +940,26 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error', 'Usuário não encontrado');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_nonexist']);
+      await pool.query('DELETE FROM users WHERE username = $1', [adminUsername]);
     });
 
     test('Should fail to delete with invalid ID', async () => {
       const bcrypt = require('bcrypt');
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+      const adminUsername = generateTestUsername('admin_inv');
+      const adminEmail = generateTestEmail('admin.inv');
+
       await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (username) DO NOTHING`,
-        ['Auth', 'InvalidId', 'auth_invalidid', 'auth.invalidid@test.com', hashedPassword, 'admin', 'active']
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ['Auth', 'InvalidId', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
       );
 
       const loginResponse = await request(app)
         .post('/api/users/login')
         .send({
-          login: 'auth_invalidid',
+          login: adminUsername,
           password: 'testpass123'
         });
 
@@ -931,7 +973,7 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('error', 'ID do usuário inválido');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['auth_invalidid']);
+      await pool.query('DELETE FROM users WHERE username = $1', [adminUsername]);
     });
 
     test('Should fail to delete without token', async () => {

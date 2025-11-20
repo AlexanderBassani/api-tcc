@@ -1,8 +1,14 @@
 const rateLimit = require('express-rate-limit');
 const logger = require('../config/logger');
 
+// Desabilita rate limiting em ambiente de testes
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+
+// Middleware no-op para testes (não faz nada, apenas passa adiante)
+const noOpLimiter = (req, res, next) => next();
+
 // Limitador geral para todas as rotas
-const generalLimiter = rateLimit({
+const generalLimiterProduction = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // Máximo de requisições por janela
   message: {
@@ -25,7 +31,7 @@ const generalLimiter = rateLimit({
 });
 
 // Limitador específico para rotas de autenticação (mais restritivo)
-const authLimiter = rateLimit({
+const authLimiterProduction = rateLimit({
   windowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
   max: parseInt(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS) || 5, // Máximo de 5 tentativas
   message: {
@@ -49,7 +55,7 @@ const authLimiter = rateLimit({
 });
 
 // Limitador para reset de senha (muito restritivo)
-const passwordResetLimiter = rateLimit({
+const passwordResetLimiterProduction = rateLimit({
   windowMs: parseInt(process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS) || 60 * 60 * 1000, // 1 hora
   max: parseInt(process.env.PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS) || 3, // Máximo de 3 tentativas por hora
   message: {
@@ -70,6 +76,11 @@ const passwordResetLimiter = rateLimit({
     });
   }
 });
+
+// Exporta middleware no-op em testes, ou rate limiters reais em produção
+const generalLimiter = isTestEnvironment ? noOpLimiter : generalLimiterProduction;
+const authLimiter = isTestEnvironment ? noOpLimiter : authLimiterProduction;
+const passwordResetLimiter = isTestEnvironment ? noOpLimiter : passwordResetLimiterProduction;
 
 module.exports = {
   generalLimiter,

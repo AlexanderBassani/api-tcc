@@ -401,6 +401,7 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
 - Corrigir os problemas até todos os testes passarem
 - Informar ao usuário os resultados dos testes
 - Se novos testes forem necessários, sugerir ao usuário
+- **Nota**: Rate limiting é desabilitado automaticamente em ambiente de testes (NODE_ENV=test)
 
 ### Desenvolvimento Local
 - O servidor roda na porta 3000 por padrão

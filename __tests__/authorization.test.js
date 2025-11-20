@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../src/app');
 const pool = require('../src/config/database');
 const bcrypt = require('bcrypt');
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
 
 describe('Authorization Middleware', () => {
   let adminToken;
@@ -128,11 +129,15 @@ describe('Authorization Middleware', () => {
     test('Should allow admin to deactivate user', async () => {
       // Criar usuário para inativar
       const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      const testUsername = generateTestUsername('deact_auth');
+      const testEmail = generateTestEmail('deact.auth');
+
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['Deactivate', 'Test', 'deactivate_auth_test', 'deactivate.auth@test.com', hashedPassword, 'user', 'active']
+        ['Deactivate', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
       const userId = userResult.rows[0].id;
 
@@ -145,7 +150,7 @@ describe('Authorization Middleware', () => {
       expect(response.body.data.status).toBe('inactive');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should deny regular user from deactivating user', async () => {
@@ -172,11 +177,15 @@ describe('Authorization Middleware', () => {
     test('Should allow admin to delete user', async () => {
       // Criar usuário para deletar
       const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      const testUsername = generateTestUsername('del_auth');
+      const testEmail = generateTestEmail('del.auth');
+
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['Delete', 'Test', 'delete_auth_test', 'delete.auth@test.com', hashedPassword, 'user', 'active']
+        ['Delete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
       const userId = userResult.rows[0].id;
 
@@ -189,7 +198,7 @@ describe('Authorization Middleware', () => {
       expect(response.body.deleteType).toBe('soft');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should deny regular user from deleting user', async () => {
@@ -214,11 +223,15 @@ describe('Authorization Middleware', () => {
     test('Should allow admin to hard delete user', async () => {
       // Criar usuário para deletar
       const hashedPassword = await bcrypt.hash('testpass123', 10);
+
+      const testUsername = generateTestUsername('hdel_auth');
+      const testEmail = generateTestEmail('hdel.auth');
+
       const userResult = await pool.query(
         `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id`,
-        ['HardDelete', 'Test', 'harddelete_auth_test', 'harddelete.auth@test.com', hashedPassword, 'user', 'active']
+        ['HardDelete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
       );
       const userId = userResult.rows[0].id;
 
