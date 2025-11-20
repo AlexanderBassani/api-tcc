@@ -5,6 +5,7 @@ const {
   validateResetToken,
   resetPassword
 } = require('../controllers/passwordResetController');
+const { passwordResetLimiter } = require('../middleware/rateLimiting');
 
 /**
  * @swagger
@@ -33,8 +34,10 @@ const {
  *         description: Bad request
  *       404:
  *         description: User not found
+ *       429:
+ *         description: Too many password reset requests
  */
-router.post('/request', requestPasswordReset);
+router.post('/request', passwordResetLimiter, requestPasswordReset);
 
 /**
  * @swagger
@@ -61,8 +64,10 @@ router.post('/request', requestPasswordReset);
  *                   type: boolean
  *       400:
  *         description: Invalid or expired token
+ *       429:
+ *         description: Too many validation attempts
  */
-router.post('/validate-token', validateResetToken);
+router.post('/validate-token', passwordResetLimiter, validateResetToken);
 
 /**
  * @swagger
@@ -89,7 +94,9 @@ router.post('/validate-token', validateResetToken);
  *                   type: string
  *       400:
  *         description: Invalid or expired token
+ *       429:
+ *         description: Too many reset attempts
  */
-router.post('/reset', resetPassword);
+router.post('/reset', passwordResetLimiter, resetPassword);
 
 module.exports = router;

@@ -15,6 +15,7 @@ const {
     deleteUser
 } = require('../controllers/userController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { authLimiter } = require('../middleware/rateLimiting');
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/users/register', register);
+router.post('/users/register', authLimiter, register);
 
 /**
  * @swagger
@@ -73,8 +74,10 @@ router.post('/users/register', register);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *       429:
+ *         description: Too many login attempts
  */
-router.post('/users/login', login);
+router.post('/users/login', authLimiter, login);
 
 /**
  * @swagger
@@ -246,6 +249,30 @@ router.put('/users/profile', authenticateToken, updateProfile);
 
 /**
  * @swagger
+ * /api/users/change-password:
+ *   put:
+ *     summary: Change current user password
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChangePassword'
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ */
+router.put('/users/change-password', authenticateToken, changePassword);
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   put:
  *     summary: Update user (admin only)
@@ -289,30 +316,6 @@ router.put('/users/profile', authenticateToken, updateProfile);
  *         description: Username or email already in use
  */
 router.put('/users/:id', authenticateToken, authorizeRoles('admin'), updateUser);
-
-/**
- * @swagger
- * /api/users/change-password:
- *   put:
- *     summary: Change current user password
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ChangePassword'
- *     responses:
- *       200:
- *         description: Password changed successfully
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
-router.put('/users/change-password', authenticateToken, changePassword);
 
 /**
  * @swagger

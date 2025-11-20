@@ -8,6 +8,7 @@ const passwordResetRoutes = require('./routes/passwordReset');
 const preferencesRoutes = require('./routes/preferences');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger, errorLogger } = require('./middleware/requestLogger');
+const { generalLimiter } = require('./middleware/rateLimiting');
 const logger = require('./config/logger');
 require('dotenv').config();
 
@@ -62,6 +63,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Aplicar limitador geral de rate limiting a todas as rotas
+app.use(generalLimiter);
 
 // Middleware para parsing JSON com limite de tamanho configurável
 const jsonLimit = process.env.JSON_LIMIT || '10mb';

@@ -79,6 +79,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **winston** - Sistema de logging profissional
 - **winston-daily-rotate-file** - Rotação automática de arquivos de log
 - **helmet** - Middleware de segurança HTTP headers
+- **express-rate-limit** - Rate limiting para proteção contra abusos
 
 ## Configuração do Banco
 
@@ -164,6 +165,78 @@ contentSecurityPolicy: {
 ✅ Controle de políticas cross-domain
 ✅ Força uso de HTTPS em produção
 ✅ Controle de informações de referrer
+
+## Rate Limiting
+
+O projeto utiliza **express-rate-limit** para proteger a API contra abusos e ataques de força bruta.
+
+### Limitadores Configurados
+
+#### 1. Limitador Geral (Global)
+Aplicado a todas as rotas da API:
+- **Janela de tempo**: 15 minutos (900.000ms)
+- **Máximo de requisições**: 100 requisições por IP
+- **Resposta**: HTTP 429 (Too Many Requests)
+
+#### 2. Limitador de Autenticação
+Aplicado às rotas de login e registro:
+- **Janela de tempo**: 15 minutos
+- **Máximo de requisições**: 5 tentativas por IP
+- **Característica especial**: Não conta requisições bem-sucedidas (skipSuccessfulRequests)
+- **Rotas protegidas**:
+  - `POST /api/users/login`
+  - `POST /api/users/register`
+
+#### 3. Limitador de Reset de Senha
+Aplicado às rotas de recuperação de senha:
+- **Janela de tempo**: 1 hora (3.600.000ms)
+- **Máximo de requisições**: 3 tentativas por IP
+- **Rotas protegidas**:
+  - `POST /api/password-reset/request`
+  - `POST /api/password-reset/validate-token`
+  - `POST /api/password-reset/reset`
+
+### Configuração no `.env`
+
+```bash
+# Limitador Geral
+RATE_LIMIT_WINDOW_MS=900000              # 15 minutos
+RATE_LIMIT_MAX_REQUESTS=100              # 100 requisições
+
+# Limitador de Autenticação
+AUTH_RATE_LIMIT_WINDOW_MS=900000         # 15 minutos
+AUTH_RATE_LIMIT_MAX_REQUESTS=5           # 5 tentativas
+
+# Limitador de Reset de Senha
+PASSWORD_RESET_RATE_LIMIT_WINDOW_MS=3600000  # 1 hora
+PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS=3     # 3 tentativas
+```
+
+### Headers de Resposta
+
+Quando o rate limiting está ativo, a API retorna os seguintes headers:
+
+- `RateLimit-Limit`: Número máximo de requisições permitidas
+- `RateLimit-Remaining`: Número de requisições restantes na janela atual
+- `RateLimit-Reset`: Timestamp quando o limite será resetado
+- `Retry-After`: Tempo em segundos até poder tentar novamente (quando limite excedido)
+
+### Resposta ao Exceder Limite
+
+```json
+{
+  "error": "Muitas requisições deste IP, por favor tente novamente mais tarde.",
+  "retryAfter": "900"
+}
+```
+
+### Benefícios de Segurança
+
+✅ Proteção contra ataques de força bruta em login
+✅ Prevenção de abuso de recursos da API
+✅ Proteção contra ataques DDoS básicos
+✅ Limitação de tentativas de reset de senha
+✅ Logs automáticos de violações de rate limit
 
 ## Sistema de Logs
 
