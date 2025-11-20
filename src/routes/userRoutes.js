@@ -16,6 +16,16 @@ const {
 } = require('../controllers/userController');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiting');
+const {
+    validateRegister,
+    validateLogin,
+    validateCreateUser,
+    validateUpdateProfile,
+    validateChangePassword,
+    validateAdminChangePassword,
+    validateUserId,
+    validateRefreshToken
+} = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -46,7 +56,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/users/register', authLimiter, register);
+router.post('/users/register', authLimiter, validateRegister, register);
 
 /**
  * @swagger
@@ -77,7 +87,7 @@ router.post('/users/register', authLimiter, register);
  *       429:
  *         description: Too many login attempts
  */
-router.post('/users/login', authLimiter, login);
+router.post('/users/login', authLimiter, validateLogin, login);
 
 /**
  * @swagger
@@ -109,7 +119,7 @@ router.post('/users/login', authLimiter, login);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/users/refresh-token', refreshToken);
+router.post('/users/refresh-token', validateRefreshToken, refreshToken);
 
 /**
  * @swagger
@@ -180,7 +190,7 @@ router.get('/users/profile', authenticateToken, getProfile);
  *       401:
  *         description: Unauthorized
  */
-router.get('/users/:id', authenticateToken, getUserById);
+router.get('/users/:id', authenticateToken, validateUserId, getUserById);
 
 /**
  * @swagger
@@ -217,7 +227,7 @@ router.get('/users/:id', authenticateToken, getUserById);
  *       409:
  *         description: Username or email already exists
  */
-router.post('/users', authenticateToken, authorizeRoles('admin'), createUser);
+router.post('/users', authenticateToken, authorizeRoles('admin'), validateCreateUser, createUser);
 
 /**
  * @swagger
@@ -245,7 +255,7 @@ router.post('/users', authenticateToken, authorizeRoles('admin'), createUser);
  *       401:
  *         description: Unauthorized
  */
-router.put('/users/profile', authenticateToken, updateProfile);
+router.put('/users/profile', authenticateToken, validateUpdateProfile, updateProfile);
 
 /**
  * @swagger
@@ -269,7 +279,7 @@ router.put('/users/profile', authenticateToken, updateProfile);
  *       401:
  *         description: Unauthorized
  */
-router.put('/users/change-password', authenticateToken, changePassword);
+router.put('/users/change-password', authenticateToken, validateChangePassword, changePassword);
 
 /**
  * @swagger
@@ -315,7 +325,7 @@ router.put('/users/change-password', authenticateToken, changePassword);
  *       409:
  *         description: Username or email already in use
  */
-router.put('/users/:id', authenticateToken, authorizeRoles('admin'), updateUser);
+router.put('/users/:id', authenticateToken, authorizeRoles('admin'), validateUserId, validateUpdateProfile, updateUser);
 
 /**
  * @swagger
@@ -348,7 +358,7 @@ router.put('/users/:id', authenticateToken, authorizeRoles('admin'), updateUser)
  *       403:
  *         description: Forbidden
  */
-router.put('/users/:id/change-password', authenticateToken, changePassword);
+router.put('/users/:id/change-password', authenticateToken, validateAdminChangePassword, changePassword);
 
 /**
  * @swagger
@@ -424,7 +434,7 @@ router.post('/users/logout', authenticateToken, logout);
  *       403:
  *         description: Forbidden - Admin role required
  */
-router.patch('/users/:id/deactivate', authenticateToken, authorizeRoles('admin'), deactivateUser);
+router.patch('/users/:id/deactivate', authenticateToken, authorizeRoles('admin'), validateUserId, deactivateUser);
 
 /**
  * @swagger
@@ -483,6 +493,6 @@ router.patch('/users/:id/deactivate', authenticateToken, authorizeRoles('admin')
  *       403:
  *         description: Forbidden - Admin role required
  */
-router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), deleteUser);
+router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), validateUserId, deleteUser);
 
 module.exports = router;

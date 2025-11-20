@@ -6,6 +6,11 @@ const {
   resetPassword
 } = require('../controllers/passwordResetController');
 const { passwordResetLimiter } = require('../middleware/rateLimiting');
+const {
+  validatePasswordResetRequest,
+  validatePasswordResetToken,
+  validatePasswordReset
+} = require('../middleware/validation');
 
 /**
  * @swagger
@@ -37,7 +42,7 @@ const { passwordResetLimiter } = require('../middleware/rateLimiting');
  *       429:
  *         description: Too many password reset requests
  */
-router.post('/request', passwordResetLimiter, requestPasswordReset);
+router.post('/request', passwordResetLimiter, validatePasswordResetRequest, requestPasswordReset);
 
 /**
  * @swagger
@@ -67,7 +72,7 @@ router.post('/request', passwordResetLimiter, requestPasswordReset);
  *       429:
  *         description: Too many validation attempts
  */
-router.post('/validate-token', passwordResetLimiter, validateResetToken);
+router.post('/validate-token', passwordResetLimiter, validatePasswordResetToken, validateResetToken);
 
 /**
  * @swagger
@@ -97,6 +102,6 @@ router.post('/validate-token', passwordResetLimiter, validateResetToken);
  *       429:
  *         description: Too many reset attempts
  */
-router.post('/reset', passwordResetLimiter, resetPassword);
+router.post('/reset', passwordResetLimiter, validatePasswordReset, resetPassword);
 
 module.exports = router;

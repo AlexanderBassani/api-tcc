@@ -217,8 +217,11 @@ src/
 │   ├── passwordResetController.js   # Reset de senha
 │   └── preferencesController.js     # Preferências do usuário
 ├── middleware/      # Middlewares
-│   ├── auth.js          # Autenticação JWT
-│   └── errorHandler.js  # Tratamento de erros
+│   ├── auth.js          # Autenticação JWT e autorização
+│   ├── errorHandler.js  # Tratamento de erros
+│   ├── rateLimiting.js  # Rate limiting para rotas
+│   ├── requestLogger.js # Logging de requisições HTTP
+│   └── validation.js    # Validação e sanitização de dados
 ├── migrations/      # Migrations do banco
 ├── routes/          # Rotas da API
 │   ├── userRoutes.js       # Rotas de usuários
@@ -410,7 +413,7 @@ O projeto inclui os seguintes serviços:
 - **Backend:** Node.js, Express
 - **Banco:** PostgreSQL, pg (driver)
 - **Autenticação:** JWT (jsonwebtoken)
-- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit
+- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit, express-validator
 - **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
 - **Logging:** Winston com rotação automática de arquivos
@@ -564,7 +567,7 @@ npm run docker:logs
 - ✅ Proteção contra enumeração de usuários (mensagens genéricas)
 
 ### Gerenciamento de Dados
-- ✅ Validação de entrada de dados
+- ✅ **Validação e sanitização de entrada de dados (express-validator)**
 - ✅ Soft delete de usuários
 - ✅ Hard delete para remoção permanente de usuários (admin only)
 
@@ -574,6 +577,161 @@ npm run docker:logs
   - Logs de erros e warnings
   - Rotação automática de arquivos
   - Logs de violações de rate limit
+
+## ✅ Sistema de Validação e Sanitização
+
+O sistema implementa validação e sanitização robusta usando **express-validator** em todos os endpoints da API.
+
+### Características
+
+- ✅ **Validação de tipos** - Verifica tipos de dados (string, number, boolean, date)
+- ✅ **Validação de comprimento** - Limites mínimos e máximos para campos
+- ✅ **Validação de formato** - Regex para emails, usernames, telefones, etc.
+- ✅ **Validação de enums** - Valores permitidos (roles, theme_mode, font_size, etc.)
+- ✅ **Sanitização XSS** - Remove/escapa caracteres perigosos
+- ✅ **Normalização** - Padroniza emails, remove espaços, etc.
+- ✅ **Mensagens contextualizadas** - Erros específicos por tipo de validação
+
+### Validações Implementadas
+
+#### Registro de Usuário (`validateRegister`)
+```javascript
+// Campos validados
+- first_name: 2-50 caracteres, apenas letras
+- last_name: 2-50 caracteres, apenas letras
+- username: 3-30 caracteres, alfanumérico + underscore
+- email: formato válido, normalizado, max 100 caracteres
+- password: mínimo 6 caracteres
+- role: opcional, deve ser 'admin' ou 'user'
+```
+
+#### Login (`validateLogin`)
+```javascript
+- login: 3-100 caracteres (username ou email)
+- password: obrigatório
+```
+
+#### Atualização de Perfil (`validateUpdateProfile`)
+```javascript
+- first_name: opcional, 2-50 caracteres, apenas letras
+- last_name: opcional, 2-50 caracteres, apenas letras
+- phone: opcional, formato de telefone válido, max 20 caracteres
+- date_of_birth: opcional, data ISO8601 válida
+- gender: opcional, valores: 'male', 'female', 'other', 'prefer_not_to_say'
+- bio: opcional, max 500 caracteres
+- preferred_language: opcional, formato: 'pt-BR', 'en-US', etc.
+- timezone: opcional, max 50 caracteres
+```
+
+#### Reset de Senha (`validatePasswordReset`)
+```javascript
+- token: obrigatório, mínimo 10 caracteres
+- newPassword: obrigatório, mínimo 6 caracteres
+```
+
+#### Preferências (`validatePreferences`)
+```javascript
+- theme_mode: opcional, valores: 'light', 'dark', 'system'
+- theme_color: opcional, max 30 caracteres, formato cor válido
+- font_size: opcional, valores: 'small', 'medium', 'large', 'extra-large'
+- compact_mode: opcional, boolean
+- animations_enabled: opcional, boolean
+- high_contrast: opcional, boolean
+- reduce_motion: opcional, boolean
+```
+
+#### ID de Usuário (`validateUserId`)
+```javascript
+- id: parâmetro de rota, deve ser inteiro positivo (>= 1)
+```
+
+### Sanitização Aplicada
+
+Todos os campos de texto passam por sanitização:
+- **trim()** - Remove espaços no início e fim
+- **escape()** - Escapa caracteres HTML especiais (<, >, &, ', ", /)
+- **normalizeEmail()** - Padroniza formato de email (lowercase, remove dots no Gmail)
+
+### Formato de Resposta de Erro
+
+Quando uma validação falha, a API retorna:
+
+```json
+{
+  "error": "Campos obrigatórios não fornecidos",
+  "message": "Campos obrigatórios não fornecidos",
+  "details": [
+    {
+      "field": "email",
+      "message": "Email é obrigatório",
+      "value": ""
+    },
+    {
+      "field": "password",
+      "message": "Senha é obrigatória",
+      "value": ""
+    }
+  ]
+}
+```
+
+### Mensagens Contextualizadas
+
+O sistema retorna mensagens de erro diferentes dependendo do contexto:
+
+- **Múltiplos campos obrigatórios faltando**: `"Campos obrigatórios não fornecidos"`
+- **Validação de preferências**: `"Validação falhou"` com detalhes do campo
+- **ID inválido**: `"ID do usuário inválido"`
+- **Erro específico único**: Retorna a mensagem específica da validação
+
+### Exemplo de Uso
+
+```javascript
+// Requisição com dados inválidos
+POST /api/users/register
+{
+  "first_name": "J",           // Muito curto (mín 2)
+  "last_name": "123",          // Contém números
+  "username": "ab",            // Muito curto (mín 3)
+  "email": "invalid-email",    // Formato inválido
+  "password": "123"            // Muito curto (mín 6)
+}
+
+// Resposta
+{
+  "error": "Primeiro nome deve ter entre 2 e 50 caracteres",
+  "message": "Primeiro nome deve ter entre 2 e 50 caracteres",
+  "details": [
+    {
+      "field": "first_name",
+      "message": "Primeiro nome deve ter entre 2 e 50 caracteres",
+      "value": "J"
+    },
+    {
+      "field": "last_name",
+      "message": "Sobrenome deve conter apenas letras",
+      "value": "123"
+    },
+    // ... mais erros
+  ]
+}
+```
+
+### Rotas Protegidas com Validação
+
+Todas as rotas da API utilizam validação:
+- ✅ 11 validações em `userRoutes.js`
+- ✅ 3 validações em `passwordReset.js`
+- ✅ 5 validações em `preferences.js`
+
+### Proteção Contra Ataques
+
+A validação protege contra:
+- ✅ **XSS (Cross-Site Scripting)** - Escape de HTML
+- ✅ **SQL Injection** - Validação de tipos e sanitização
+- ✅ **NoSQL Injection** - Validação de tipos
+- ✅ **Buffer Overflow** - Limites de comprimento
+- ✅ **CSRF** - Validação de tokens e formatos
 
 ## 🗃️ Sistema de Migrations
 
@@ -680,11 +838,12 @@ A documentação interativa completa está disponível via Swagger UI:
     - ✅ Rate limit diferenciado por rota
     - Implementado com `express-rate-limit`
 
-14. **Implementar Validação e Sanitização de Dados**
-    - Validação robusta de inputs
-    - Sanitização contra XSS
-    - Prevenção de SQL/NoSQL Injection
-    - Pacote: `express-validator` (recomendado) ou `joi`
+14. ~~**Implementar Validação e Sanitização de Dados**~~ ✅
+    - ✅ Validação robusta de inputs com `express-validator`
+    - ✅ Sanitização contra XSS (trim, escape, normalizeEmail)
+    - ✅ Validações específicas por tipo de campo
+    - ✅ Mensagens de erro contextualizadas
+    - ✅ Validação de tipos, comprimentos, formatos e enums
 
 15. **Implementar proteção HTTP Parameter Pollution (HPP)**
     - Proteção contra poluição de parâmetros

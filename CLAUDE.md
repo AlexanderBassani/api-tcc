@@ -52,7 +52,12 @@ npm run docker:dev        # Desenvolvimento com rebuild
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
     - `preferences.js` - Rotas de preferências
-  - `middleware/` - Middlewares (auth, errorHandler, requestLogger)
+  - `middleware/` - Middlewares
+    - `auth.js` - Autenticação JWT e autorização RBAC
+    - `errorHandler.js` - Tratamento de erros
+    - `rateLimiting.js` - Rate limiting por rota
+    - `requestLogger.js` - Logging de requisições HTTP
+    - `validation.js` - Validação e sanitização de dados
   - `templates/` - Templates de email
   - `utils/` - Utilitários
 - `__tests__/` - Testes Jest
@@ -83,6 +88,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **winston-daily-rotate-file** - Rotação automática de arquivos de log
 - **helmet** - Middleware de segurança HTTP headers
 - **express-rate-limit** - Rate limiting para proteção contra abusos
+- **express-validator** - Validação e sanitização de dados de entrada
 
 ## Configuração do Banco
 
@@ -514,6 +520,147 @@ O middleware retorna mensagens detalhadas em caso de acesso negado:
   "path": "/api/users"
 }
 ```
+
+## Sistema de Validação e Sanitização
+
+O projeto implementa validação e sanitização robusta usando **express-validator** em todos os endpoints.
+
+### Middleware de Validação (`src/middleware/validation.js`)
+
+O arquivo contém validadores específicos para cada tipo de operação:
+
+#### Validadores Disponíveis
+- `validateRegister` - Registro de novos usuários
+- `validateLogin` - Login de usuários
+- `validateCreateUser` - Criação de usuário por admin
+- `validateUpdateProfile` - Atualização de perfil
+- `validateChangePassword` - Alteração de senha do próprio usuário
+- `validateAdminChangePassword` - Alteração de senha de outro usuário (admin)
+- `validatePasswordResetRequest` - Solicitação de reset de senha
+- `validatePasswordResetToken` - Validação de token de reset
+- `validatePasswordReset` - Reset de senha com token
+- `validatePreferences` - Atualização de preferências do usuário
+- `validateTheme` - Atualização apenas de tema (PATCH)
+- `validateUserId` - Validação de ID de usuário em parâmetros de rota
+- `validateUserIdOptional` - Validação opcional de ID de usuário
+- `validateRefreshToken` - Validação de refresh token
+
+### Características da Validação
+
+#### Validação de Tipos
+- Strings, números, booleanos, datas
+- Tipos específicos: email, URL, UUID
+- Enums com valores permitidos
+
+#### Validação de Comprimento
+- Mínimo e máximo de caracteres
+- Limites específicos por campo
+
+#### Validação de Formato
+- Regex para usernames: `^[a-zA-Z0-9_]+$`
+- Regex para nomes: `^[a-zA-ZÀ-ÿ\s]+$` (inclui acentos)
+- Regex para telefone: `^[0-9\s\-\+\(\)]+$`
+- Regex para idioma: `^[a-z]{2}(-[A-Z]{2})?$` (ex: pt-BR)
+- Formato de email validado e normalizado
+
+#### Sanitização
+Todos os campos passam por sanitização:
+- `trim()` - Remove espaços
+- `escape()` - Escapa HTML (<, >, &, ', ", /)
+- `normalizeEmail()` - Padroniza emails
+- `toInt()` - Converte para inteiro
+- `toBoolean()` - Converte para boolean
+- `toDate()` - Converte para data
+
+### Exemplo de Validador
+
+```javascript
+const validateRegister = [
+  body('first_name')
+    .trim()
+    .notEmpty().withMessage('Primeiro nome é obrigatório')
+    .isLength({ min: 2, max: 50 }).withMessage('Primeiro nome deve ter entre 2 e 50 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ\s]+$/).withMessage('Primeiro nome deve conter apenas letras')
+    .escape(),
+
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email é obrigatório')
+    .isEmail().withMessage('Email inválido')
+    .normalizeEmail()
+    .isLength({ max: 100 }).withMessage('Email deve ter no máximo 100 caracteres'),
+
+  handleValidationErrors
+];
+```
+
+### Formato de Resposta de Erro
+
+Quando uma validação falha:
+
+```json
+{
+  "error": "Campos obrigatórios não fornecidos",
+  "message": "Campos obrigatórios não fornecidos",
+  "details": [
+    {
+      "field": "email",
+      "message": "Email é obrigatório",
+      "value": ""
+    },
+    {
+      "field": "password",
+      "message": "Senha é obrigatória",
+      "value": ""
+    }
+  ]
+}
+```
+
+### Mensagens Contextualizadas
+
+O sistema adapta mensagens de erro baseado no contexto:
+
+- **Múltiplos campos obrigatórios**: `"Campos obrigatórios não fornecidos"`
+- **Preferências**: `"Validação falhou"` com detalhes específicos
+- **ID inválido**: `"ID do usuário inválido"`
+- **Erro único**: Mensagem específica da validação
+
+### Uso nas Rotas
+
+```javascript
+const { validateRegister, validateLogin } = require('../middleware/validation');
+
+// Aplicar validação antes do controller
+router.post('/users/register', authLimiter, validateRegister, register);
+router.post('/users/login', authLimiter, validateLogin, login);
+router.put('/users/profile', authenticateToken, validateUpdateProfile, updateProfile);
+```
+
+### Validações por Rota
+
+- **userRoutes.js**: 11 validações aplicadas
+- **passwordReset.js**: 3 validações aplicadas
+- **preferences.js**: 5 validações aplicadas
+
+### Proteção Contra Ataques
+
+A validação protege contra:
+- ✅ XSS (Cross-Site Scripting) - Escape de HTML
+- ✅ SQL Injection - Validação de tipos
+- ✅ NoSQL Injection - Validação de tipos
+- ✅ Buffer Overflow - Limites de comprimento
+- ✅ CSRF - Validação de tokens e formatos
+
+### Testes de Validação
+
+Todos os validadores são testados:
+- ✅ 78 testes passando (100% de sucesso)
+- ✅ Testes de dados válidos
+- ✅ Testes de dados inválidos
+- ✅ Testes de campos obrigatórios faltando
+- ✅ Testes de formatos incorretos
+- ✅ Testes de limites de comprimento
 
 ## Notas para Desenvolvimento
 

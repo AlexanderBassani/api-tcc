@@ -7,6 +7,11 @@ const {
   updateTheme
 } = require('../controllers/preferencesController');
 const { authenticateToken } = require('../middleware/auth');
+const {
+  validatePreferences,
+  validateTheme,
+  validateUserIdOptional
+} = require('../middleware/validation');
 
 /**
  * @swagger
@@ -142,7 +147,7 @@ router.get('/', authenticateToken, getUserPreferences);
  *       500:
  *         description: Erro no servidor
  */
-router.get('/:userId', authenticateToken, getUserPreferences);
+router.get('/:userId', authenticateToken, validateUserIdOptional, getUserPreferences);
 
 /**
  * @swagger
@@ -193,7 +198,7 @@ router.get('/:userId', authenticateToken, getUserPreferences);
  *       500:
  *         description: Erro no servidor
  */
-router.put('/', authenticateToken, updateUserPreferences);
+router.put('/', authenticateToken, validatePreferences, updateUserPreferences);
 
 /**
  * @swagger
@@ -252,7 +257,7 @@ router.put('/', authenticateToken, updateUserPreferences);
  *       500:
  *         description: Erro no servidor
  */
-router.put('/:userId', authenticateToken, updateUserPreferences);
+router.put('/:userId', authenticateToken, validateUserIdOptional, validatePreferences, updateUserPreferences);
 
 /**
  * @swagger
@@ -314,7 +319,7 @@ router.delete('/', authenticateToken, resetUserPreferences);
  *       500:
  *         description: Erro no servidor
  */
-router.delete('/:userId', authenticateToken, resetUserPreferences);
+router.delete('/:userId', authenticateToken, validateUserIdOptional, resetUserPreferences);
 
 /**
  * @swagger
@@ -367,6 +372,6 @@ router.delete('/:userId', authenticateToken, resetUserPreferences);
  *       500:
  *         description: Erro no servidor
  */
-router.patch('/theme', authenticateToken, updateTheme);
+router.patch('/theme', authenticateToken, validateTheme, updateTheme);
 
 module.exports = router;
