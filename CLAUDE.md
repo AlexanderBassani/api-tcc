@@ -56,6 +56,9 @@ npm run docker:dev        # Desenvolvimento com rebuild
   - `templates/` - Templates de email
   - `utils/` - Utilitários
 - `__tests__/` - Testes Jest
+  - `helpers/` - Funções auxiliares para testes
+    - `testUtils.js` - Helpers para gerar dados únicos de teste
+  - `*.test.js` - Arquivos de teste
 - `scripts/` - Scripts utilitários
   - `init-db.js` - Inicialização do banco
   - `migrate.js` - Sistema de migrations
@@ -237,6 +240,137 @@ Quando o rate limiting está ativo, a API retorna os seguintes headers:
 ✅ Proteção contra ataques DDoS básicos
 ✅ Limitação de tentativas de reset de senha
 ✅ Logs automáticos de violações de rate limit
+
+## Sistema de Testes
+
+O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
+
+### Características
+- **Framework**: Jest para execução de testes
+- **HTTP Testing**: Supertest para testar endpoints da API
+- **Isolamento**: Cada teste cria e limpa seus próprios dados
+- **Helpers**: Funções utilitárias para gerar dados únicos
+- **Cobertura**: 78 testes cobrindo todas as funcionalidades principais
+- **Rate Limiting**: Automaticamente desabilitado em ambiente de testes
+
+### Arquivos de Teste
+- `__tests__/app.test.js` - Testes básicos da aplicação
+- `__tests__/userRoutes.test.js` - Testes de rotas de usuários
+- `__tests__/authorization.test.js` - Testes de autorização e RBAC
+- `__tests__/passwordReset.test.js` - Testes de reset de senha
+- `__tests__/preferences.test.js` - Testes de preferências de usuário
+
+### Helpers de Teste (`__tests__/helpers/testUtils.js`)
+
+O projeto inclui helpers para gerar dados únicos em cada execução de teste, evitando conflitos de chave duplicada:
+
+```javascript
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+// Gerar username único (máx 30 caracteres)
+const username = generateTestUsername('admin'); // admin_420123_45
+
+// Gerar email único
+const email = generateTestEmail('test'); // test_1732113420123_456@test.com
+```
+
+**Padrão de geração:**
+- **Username**: `{base}_{timestamp_6digitos}_{random_0-99}` (ex: `admin_420123_45`)
+- **Email**: `{base}_{timestamp}_{random_0-999}@test.com`
+
+### Configuração Jest
+
+```javascript
+// jest.config.js
+module.exports = {
+  testEnvironment: 'node',
+  testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+  testPathIgnorePatterns: ['/node_modules/', '/__tests__/helpers/'],
+  collectCoverageFrom: ['src/**/*.js', '!src/server.js'],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html']
+};
+```
+
+### Executar Testes
+
+```bash
+# Executar todos os testes
+npm test
+
+# Executar testes em modo watch (auto-reload)
+npm run test:watch
+
+# Executar testes com cobertura
+npm test -- --coverage
+```
+
+### Exemplo de Teste com Dados Únicos
+
+```javascript
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+test('Should create user successfully', async () => {
+  const testUsername = generateTestUsername('newuser');
+  const testEmail = generateTestEmail('newuser.test');
+
+  const response = await request(app)
+    .post('/api/users')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({
+      first_name: 'Test',
+      last_name: 'User',
+      username: testUsername,
+      email: testEmail,
+      password: 'password123',
+      role: 'user'
+    });
+
+  expect(response.status).toBe(201);
+  expect(response.body.data.username).toBe(testUsername);
+
+  // Limpar dados de teste
+  await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
+});
+```
+
+### Boas Práticas de Testes
+
+1. **Sempre usar helpers para gerar dados únicos**:
+   - Evita conflitos de chave duplicada
+   - Permite execuções paralelas de testes
+   - Testes são independentes e isolados
+
+2. **Limpar dados após cada teste**:
+   - Usar `afterEach()` ou limpeza manual no final do teste
+   - Garantir que o banco de dados não fica poluído
+
+3. **Usar beforeAll/afterAll para setup/teardown**:
+   - Criar usuários de teste fixos (admin, usuário regular)
+   - Fazer login e obter tokens
+   - Limpar todos os dados no final
+
+4. **Rate limiting desabilitado em testes**:
+   - Middleware detecta `NODE_ENV=test` automaticamente
+   - Não há limites de requisições durante testes
+   - Permite executar testes rapidamente
+
+### Resultados dos Testes
+
+```
+Test Suites: 5 passed, 5 total
+Tests:       78 passed, 78 total
+Snapshots:   0 total
+Time:        ~10s
+```
+
+**Cobertura de testes:**
+- ✅ Autenticação (registro, login, logout, refresh token)
+- ✅ Autorização (RBAC, permissões por role)
+- ✅ CRUD de usuários (criar, listar, buscar, atualizar, deletar)
+- ✅ Reset de senha (solicitar, validar, redefinir)
+- ✅ Preferências de usuário (obter, atualizar, resetar)
+- ✅ Validações e erros (dados inválidos, usuários inexistentes, etc)
 
 ## Sistema de Logs
 

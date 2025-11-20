@@ -232,6 +232,13 @@ src/
 ├── app.js          # Configuração do Express
 └── server.js       # Inicialização do servidor
 __tests__/          # Testes Jest
+├── helpers/            # Funções auxiliares para testes
+│   └── testUtils.js    # Helpers para gerar dados únicos
+├── app.test.js         # Testes da aplicação
+├── userRoutes.test.js  # Testes de rotas de usuários
+├── authorization.test.js # Testes de autorização
+├── passwordReset.test.js # Testes de reset de senha
+└── preferences.test.js   # Testes de preferências
 scripts/            # Scripts utilitários (init-db, migrate)
 .vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
@@ -403,11 +410,117 @@ O projeto inclui os seguintes serviços:
 - **Backend:** Node.js, Express
 - **Banco:** PostgreSQL, pg (driver)
 - **Autenticação:** JWT (jsonwebtoken)
-- **Segurança:** bcrypt/bcryptjs para hash de senhas
+- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit
 - **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
+- **Logging:** Winston com rotação automática de arquivos
 - **Infraestrutura:** Docker, Docker Compose
 - **Desenvolvimento:** nodemon (hot-reload), dotenv
+
+## 🧪 Sistema de Testes
+
+O projeto possui uma suíte completa de testes automatizados com **Jest** e **Supertest**.
+
+### Executar Testes
+
+```bash
+# Executar todos os testes
+npm test
+
+# Executar em modo watch (auto-reload)
+npm run test:watch
+
+# Executar com relatório de cobertura
+npm test -- --coverage
+```
+
+### Estatísticas dos Testes
+
+```
+✅ Test Suites: 5 passed, 5 total
+✅ Tests:       78 passed, 78 total
+⏱️  Time:        ~10s
+```
+
+### Cobertura de Testes
+
+Os testes cobrem todas as funcionalidades principais da API:
+
+- ✅ **Autenticação**: Registro, login, logout, refresh token
+- ✅ **Autorização**: Sistema RBAC, permissões por role (admin/user)
+- ✅ **CRUD de Usuários**: Criar, listar, buscar, atualizar, deletar
+- ✅ **Reset de Senha**: Solicitar, validar token, redefinir senha
+- ✅ **Preferências**: Obter, atualizar, resetar preferências de usuário
+- ✅ **Validações**: Dados inválidos, usuários inexistentes, autenticação
+
+### Helpers de Teste
+
+O projeto inclui funções auxiliares para gerar dados únicos e evitar conflitos:
+
+```javascript
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+// Gerar username único (máx 30 caracteres)
+const username = generateTestUsername('admin'); // admin_420123_45
+
+// Gerar email único
+const email = generateTestEmail('test'); // test_1732113420123_456@test.com
+```
+
+### Características dos Testes
+
+1. **Dados Únicos**: Cada teste gera usernames e emails únicos usando timestamps
+2. **Isolamento**: Testes criam e limpam seus próprios dados
+3. **Rate Limiting Desabilitado**: Middleware detecta `NODE_ENV=test` automaticamente
+4. **Setup/Teardown**: Uso de `beforeAll`/`afterAll` para preparar ambiente
+5. **Limpeza Automática**: Dados de teste são removidos após execução
+
+### Arquivos de Teste
+
+| Arquivo | Descrição | Testes |
+|---------|-----------|--------|
+| `app.test.js` | Testes básicos da aplicação | Rotas básicas, health check |
+| `userRoutes.test.js` | Testes de rotas de usuários | CRUD, autenticação, validações |
+| `authorization.test.js` | Testes de autorização RBAC | Permissões admin, acesso negado |
+| `passwordReset.test.js` | Testes de reset de senha | Solicitar, validar, redefinir |
+| `preferences.test.js` | Testes de preferências | Obter, atualizar, resetar |
+
+### Exemplo de Teste
+
+```javascript
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+test('Should create user successfully', async () => {
+  const testUsername = generateTestUsername('newuser');
+  const testEmail = generateTestEmail('newuser.test');
+
+  const response = await request(app)
+    .post('/api/users')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({
+      first_name: 'Test',
+      last_name: 'User',
+      username: testUsername,
+      email: testEmail,
+      password: 'password123',
+      role: 'user'
+    });
+
+  expect(response.status).toBe(201);
+  expect(response.body.data.username).toBe(testUsername);
+
+  // Limpar dados de teste
+  await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
+});
+```
+
+### Configuração Jest
+
+O Jest está configurado para:
+- Ambiente Node.js
+- Ignorar arquivos helper (`__tests__/helpers/`)
+- Coletar cobertura de código em `src/**/*.js`
+- Gerar relatórios em HTML, LCOV e texto
 
 ## 🐛 Debug
 
@@ -429,19 +542,38 @@ npm run docker:logs
 
 ## 🔐 Segurança Implementada
 
+### Autenticação e Autorização
 - ✅ Hash de senhas com bcrypt (salt rounds: 10)
 - ✅ Autenticação JWT (access + refresh tokens)
 - ✅ Sistema de roles (admin/user)
 - ✅ **Middleware de autorização por role (RBAC)**
+- ✅ Middleware de autenticação para rotas protegidas
+- ✅ Tokens JWT com expiração configurável
+- ✅ Tokens de reset de senha hasheados (SHA256) com expiração (30 minutos)
+
+### Proteção contra Ataques
+- ✅ **Helmet** - Headers de segurança HTTP
+  - Proteção XSS, clickjacking, MIME sniffing
+  - Content Security Policy (CSP)
+  - HSTS (HTTP Strict Transport Security)
+- ✅ **Rate Limiting** - Proteção contra ataques DDoS/brute force
+  - Limites gerais: 100 req/15min por IP
+  - Autenticação: 5 tentativas/15min
+  - Reset de senha: 3 tentativas/1h
 - ✅ Proteção contra brute force (bloqueio após 5 tentativas por 15 minutos)
+- ✅ Proteção contra enumeração de usuários (mensagens genéricas)
+
+### Gerenciamento de Dados
 - ✅ Validação de entrada de dados
 - ✅ Soft delete de usuários
-- ✅ Tokens JWT com expiração configurável
-- ✅ Tokens de reset de senha hasheados (SHA256)
-- ✅ Tokens de reset com expiração (30 minutos)
-- ✅ Middleware de autenticação para rotas protegidas
-- ✅ Proteção contra enumeração de usuários (mensagens genéricas)
 - ✅ Hard delete para remoção permanente de usuários (admin only)
+
+### Logging e Auditoria
+- ✅ **Winston** - Sistema de logging profissional
+  - Logs de requisições HTTP
+  - Logs de erros e warnings
+  - Rotação automática de arquivos
+  - Logs de violações de rate limit
 
 ## 🗃️ Sistema de Migrations
 
@@ -535,17 +667,18 @@ A documentação interativa completa está disponível via Swagger UI:
 11. ~~Sistema de logging profissional com Winston~~ ✅
 
 ### Segurança (Próxima Prioridade)
-12. **Implementar Helmet** - Headers de segurança HTTP
-    - Proteção XSS, clickjacking, MIME sniffing
-    - Content Security Policy (CSP)
-    - HSTS (HTTP Strict Transport Security)
-    - Pacote: `helmet`
+12. ~~**Implementar Helmet**~~ ✅ - Headers de segurança HTTP
+    - ✅ Proteção XSS, clickjacking, MIME sniffing
+    - ✅ Content Security Policy (CSP)
+    - ✅ HSTS (HTTP Strict Transport Security)
+    - Implementado com `helmet`
 
-13. **Implementar Rate Limiting** - Proteção contra ataques DDoS/brute force
-    - Limitar requisições por IP
-    - Limitar tentativas de login
-    - Rate limit diferenciado por rota
-    - Pacotes: `express-rate-limit` + `rate-limit-redis` (para produção escalável)
+13. ~~**Implementar Rate Limiting**~~ ✅ - Proteção contra ataques DDoS/brute force
+    - ✅ Limitar requisições por IP (100 req/15min)
+    - ✅ Limitar tentativas de login (5 req/15min)
+    - ✅ Rate limit para reset de senha (3 req/1h)
+    - ✅ Rate limit diferenciado por rota
+    - Implementado com `express-rate-limit`
 
 14. **Implementar Validação e Sanitização de Dados**
     - Validação robusta de inputs
