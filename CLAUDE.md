@@ -78,6 +78,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **swagger** - Documentação da API
 - **winston** - Sistema de logging profissional
 - **winston-daily-rotate-file** - Rotação automática de arquivos de log
+- **helmet** - Middleware de segurança HTTP headers
 
 ## Configuração do Banco
 
@@ -117,6 +118,52 @@ URL_ENCODED_LIMIT=10mb       # Limite para dados URL-encoded
 Valores padrão (se não configurados):
 - JSON: 10mb
 - URL-encoded: 10mb
+
+## Segurança com Helmet
+
+O projeto utiliza **Helmet** para proteger a aplicação configurando headers HTTP de segurança.
+
+### Headers de Segurança Configurados
+
+Helmet adiciona automaticamente os seguintes headers de segurança:
+
+- **X-DNS-Prefetch-Control**: Controla o DNS prefetching dos navegadores
+- **X-Frame-Options**: Previne clickjacking (SAMEORIGIN)
+- **X-Content-Type-Options**: Previne MIME type sniffing (nosniff)
+- **X-Download-Options**: Para navegadores IE, previne downloads não seguros (noopen)
+- **X-Permitted-Cross-Domain-Policies**: Restringe políticas cross-domain (none)
+- **Referrer-Policy**: Controla informações de referrer (no-referrer)
+- **Strict-Transport-Security**: Força HTTPS (quando em produção)
+- **X-XSS-Protection**: Proteção contra XSS (legacy browsers)
+
+### Content Security Policy (CSP)
+
+A aplicação possui CSP configurada com permissões específicas para o Swagger UI:
+
+```javascript
+contentSecurityPolicy: {
+  directives: {
+    defaultSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],   // Swagger necessita
+    scriptSrc: ["'self'", "'unsafe-inline'"],  // Swagger necessita
+    imgSrc: ["'self'", "data:", "https:"],
+  },
+}
+```
+
+### Configurações Adicionais
+
+- **crossOriginEmbedderPolicy**: Desabilitado para compatibilidade com recursos externos
+- **crossOriginResourcePolicy**: Configurado como "cross-origin" para permitir recursos de diferentes origens
+
+### Benefícios de Segurança
+
+✅ Proteção contra clickjacking
+✅ Proteção contra XSS (Cross-Site Scripting)
+✅ Prevenção de MIME type sniffing
+✅ Controle de políticas cross-domain
+✅ Força uso de HTTPS em produção
+✅ Controle de informações de referrer
 
 ## Sistema de Logs
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
@@ -11,6 +12,22 @@ const logger = require('./config/logger');
 require('dotenv').config();
 
 const app = express();
+
+// Configuração de segurança com Helmet
+app.use(helmet({
+  // Content Security Policy - configurado para permitir Swagger UI
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Swagger precisa de inline styles
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Swagger precisa de inline scripts
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  // Configurações adicionais de segurança
+  crossOriginEmbedderPolicy: false, // Desabilitado para compatibilidade com recursos externos
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite recursos cross-origin
+}));
 
 // Configuração CORS
 const corsOptions = {
