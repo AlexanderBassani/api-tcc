@@ -413,7 +413,7 @@ O projeto inclui os seguintes serviços:
 - **Backend:** Node.js, Express
 - **Banco:** PostgreSQL, pg (driver)
 - **Autenticação:** JWT (jsonwebtoken)
-- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit, express-validator, hpp
+- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit, express-validator, hpp, csrf-csrf, cookie-parser
 - **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
 - **Logging:** Winston com rotação automática de arquivos
@@ -567,6 +567,12 @@ npm run docker:logs
   - Previne ataques com múltiplos parâmetros duplicados
   - Mantém apenas o último valor de parâmetros duplicados
   - Suporte a whitelist para parâmetros que devem aceitar arrays
+- ✅ **CSRF Protection** - Proteção contra Cross-Site Request Forgery
+  - Double Submit Cookie pattern
+  - Tokens CSRF para requisições de mutação (POST, PUT, DELETE, PATCH)
+  - Cookie httpOnly, sameSite strict e secure em produção
+  - Endpoint `/api/csrf-token` para obter tokens
+  - Desabilitado em ambiente de teste
 - ✅ Proteção contra brute force (bloqueio após 5 tentativas por 15 minutos)
 - ✅ Proteção contra enumeração de usuários (mensagens genéricas)
 
@@ -856,10 +862,14 @@ A documentação interativa completa está disponível via Swagger UI:
     - ✅ Suporte a whitelist para parâmetros que devem aceitar arrays
     - Implementado com `hpp`
 
-16. **Implementar CSRF Protection**
-    - Proteção contra Cross-Site Request Forgery
-    - Tokens CSRF para formulários
-    - Pacote: `csurf` ou `csrf-csrf`
+16. ~~**Implementar CSRF Protection**~~ ✅
+    - ✅ Proteção contra Cross-Site Request Forgery
+    - ✅ Double Submit Cookie pattern
+    - ✅ Tokens CSRF para requisições de mutação (POST, PUT, DELETE, PATCH)
+    - ✅ Cookie httpOnly, sameSite strict e secure em produção
+    - ✅ Endpoint GET /api/csrf-token para obter tokens
+    - ✅ Desabilitado em ambiente de teste (NODE_ENV=test)
+    - Implementado com `csrf-csrf` e `cookie-parser`
 
 ### Funcionalidades Adicionais
 17. Implementar verificação de email

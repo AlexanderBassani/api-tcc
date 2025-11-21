@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const hpp = require('hpp');
+const cookieParser = require('cookie-parser');
+const { doubleCsrf } = require('csrf-csrf');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
@@ -84,6 +86,38 @@ app.use(hpp({
   whitelist: []
 }));
 
+// Cookie Parser - necessário para CSRF protection
+app.use(cookieParser());
+
+// Proteção CSRF (Cross-Site Request Forgery)
+// Desabilitado em ambiente de testes para não quebrar os testes existentes
+const csrfEnabled = process.env.NODE_ENV !== 'test';
+
+let csrfProtection, generateToken;
+
+if (csrfEnabled) {
+  const doubleCsrfOptions = {
+    getSecret: () => process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production',
+    cookieName: 'x-csrf-token',
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production', // HTTPS em produção
+      maxAge: 86400000 // 24 horas
+    },
+    size: 64,
+    ignoredMethods: ['GET', 'HEAD', 'OPTIONS']
+  };
+
+  const csrf = doubleCsrf(doubleCsrfOptions);
+  csrfProtection = csrf.doubleCsrfProtection;
+  generateToken = csrf.generateToken;
+} else {
+  // Mock middleware para testes
+  csrfProtection = (req, res, next) => next();
+  generateToken = (req, res) => 'test-token';
+}
+
 // Middleware de logging de requisições (todas as requisições HTTP)
 app.use(requestLogger);
 
@@ -137,6 +171,20 @@ app.get('/api-docs.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
+
+// Endpoint para obter token CSRF
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateToken(req, res);
+  res.json({
+    token,
+    headerName: 'x-csrf-token',
+    cookieName: 'x-csrf-token'
+  });
+});
+
+// Aplicar proteção CSRF nas rotas da API (POST, PUT, DELETE, PATCH)
+// GET, HEAD e OPTIONS são ignorados automaticamente
+app.use('/api', csrfProtection);
 
 // Rotas da API
 app.use('/api', userRoutes);

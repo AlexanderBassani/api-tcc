@@ -90,6 +90,8 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **express-rate-limit** - Rate limiting para proteção contra abusos
 - **express-validator** - Validação e sanitização de dados de entrada
 - **hpp** - Proteção contra HTTP Parameter Pollution
+- **csrf-csrf** - Proteção contra Cross-Site Request Forgery
+- **cookie-parser** - Parser de cookies (necessário para CSRF)
 
 ## Configuração do Banco
 
@@ -354,6 +356,214 @@ app.use('/api', routes);
 ✅ Protege contra manipulação de dados via query strings
 ✅ Evita vulnerabilidades de lógica de negócio
 ✅ Compatível com validações do express-validator
+
+## Proteção CSRF (Cross-Site Request Forgery)
+
+O projeto utiliza **csrf-csrf** e **cookie-parser** para proteger contra ataques CSRF.
+
+### O que é CSRF?
+
+Cross-Site Request Forgery (CSRF) é um ataque onde um site malicioso induz o navegador do usuário a fazer requisições não autorizadas para outro site onde o usuário está autenticado.
+
+**Exemplo de ataque:**
+```html
+<!-- Site malicioso evil.com -->
+<form action="https://api.example.com/api/users/1" method="POST">
+  <input name="role" value="admin">
+</form>
+<script>document.forms[0].submit();</script>
+```
+
+Se o usuário estiver logado em `api.example.com`, o navegador enviará automaticamente os cookies de autenticação, permitindo que o ataque tenha sucesso.
+
+### Como a Proteção CSRF Funciona
+
+O projeto usa o **Double Submit Cookie pattern**:
+
+1. **Servidor gera um token** e o armazena em um cookie httpOnly
+2. **Cliente obtém o token** via endpoint GET /api/csrf-token
+3. **Cliente envia o token** no header `x-csrf-token` em requisições de mutação
+4. **Servidor valida** se o token do header coincide com o cookie
+
+### Configuração
+
+```javascript
+const cookieParser = require('cookie-parser');
+const { doubleCsrf } = require('csrf-csrf');
+
+// Cookie Parser (obrigatório)
+app.use(cookieParser());
+
+// Configuração CSRF
+const doubleCsrfOptions = {
+  getSecret: () => process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production',
+  cookieName: 'x-csrf-token',
+  cookieOptions: {
+    httpOnly: true,           // Não acessível via JavaScript
+    sameSite: 'strict',       // Cookies apenas para mesma origem
+    secure: process.env.NODE_ENV === 'production', // HTTPS em produção
+    maxAge: 86400000          // 24 horas
+  },
+  size: 64,                   // Tamanho do token em caracteres
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'] // Métodos que não precisam de CSRF
+};
+
+const csrf = doubleCsrf(doubleCsrfOptions);
+app.use('/api', csrf.doubleCsrfProtection);
+```
+
+### Variável de Ambiente
+
+Adicione no `.env`:
+```bash
+CSRF_SECRET=your-random-secret-here-minimum-32-characters
+```
+
+⚠️ **IMPORTANTE**: Gere um secret forte e aleatório em produção!
+
+```bash
+# Gerar um secret aleatório
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### Endpoint para Obter Token
+
+```javascript
+// GET /api/csrf-token
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateToken(req, res);
+  res.json({
+    token,
+    headerName: 'x-csrf-token',
+    cookieName: 'x-csrf-token'
+  });
+});
+```
+
+### Como Usar no Cliente
+
+#### 1. Obter o Token CSRF
+
+```javascript
+// Fazer requisição para obter o token
+const response = await fetch('http://localhost:3000/api/csrf-token', {
+  credentials: 'include' // IMPORTANTE: incluir cookies
+});
+
+const { token, headerName } = await response.json();
+```
+
+#### 2. Incluir o Token em Requisições de Mutação
+
+```javascript
+// POST, PUT, DELETE, PATCH devem incluir o token
+await fetch('http://localhost:3000/api/users/profile', {
+  method: 'PUT',
+  credentials: 'include', // Incluir cookies
+  headers: {
+    'Content-Type': 'application/json',
+    'x-csrf-token': token, // Token CSRF
+    'Authorization': `Bearer ${accessToken}` // JWT
+  },
+  body: JSON.stringify({ first_name: 'John' })
+});
+```
+
+#### 3. Requisições GET Não Precisam de Token
+
+```javascript
+// GET, HEAD, OPTIONS são automaticamente ignorados
+await fetch('http://localhost:3000/api/users/profile', {
+  credentials: 'include',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+```
+
+### Métodos Protegidos
+
+- ✅ **POST** - Requer CSRF token
+- ✅ **PUT** - Requer CSRF token
+- ✅ **DELETE** - Requer CSRF token
+- ✅ **PATCH** - Requer CSRF token
+- ⛔ **GET** - Não requer (seguro)
+- ⛔ **HEAD** - Não requer (seguro)
+- ⛔ **OPTIONS** - Não requer (seguro)
+
+### Resposta de Erro CSRF
+
+Quando o token está ausente ou inválido:
+
+```json
+{
+  "error": "ForbiddenError: invalid csrf token"
+}
+```
+
+Status code: **403 Forbidden**
+
+### Desabilitado em Ambiente de Teste
+
+Para não quebrar os testes existentes, o CSRF é automaticamente desabilitado quando `NODE_ENV=test`:
+
+```javascript
+const csrfEnabled = process.env.NODE_ENV !== 'test';
+
+if (csrfEnabled) {
+  // Configura CSRF normalmente
+} else {
+  // Mock middleware que não faz nada
+  csrfProtection = (req, res, next) => next();
+  generateToken = (req, res) => 'test-token';
+}
+```
+
+### Posicionamento no Middleware Stack
+
+```javascript
+// 1. Helmet
+app.use(helmet());
+
+// 2. CORS
+app.use(cors());
+
+// 3. Rate Limiting
+app.use(generalLimiter);
+
+// 4. Body Parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 5. HPP
+app.use(hpp());
+
+// 6. Cookie Parser (obrigatório para CSRF)
+app.use(cookieParser());
+
+// 7. CSRF Protection
+app.use('/api', csrfProtection);
+
+// 8. Rotas
+app.use('/api', userRoutes);
+```
+
+### Benefícios de Segurança
+
+✅ Previne ataques CSRF em requisições de mutação
+✅ Double Submit Cookie pattern (resistente a ataques)
+✅ Cookie httpOnly (não acessível via JavaScript)
+✅ SameSite strict (proteção adicional)
+✅ Secure em produção (apenas HTTPS)
+✅ Compatível com autenticação JWT
+✅ Não quebra testes automatizados
+
+### Limitações e Considerações
+
+⚠️ **CORS**: O CSRF protection funciona melhor com `credentials: 'include'`
+⚠️ **Mobile Apps**: Podem ter dificuldade com cookies - considere usar apenas JWT
+⚠️ **SameSite**: Pode causar problemas em alguns navegadores antigos
+⚠️ **Secret**: Use um secret forte e único em produção
 
 ## Sistema de Testes
 
