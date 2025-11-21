@@ -413,7 +413,7 @@ O projeto inclui os seguintes serviços:
 - **Backend:** Node.js, Express
 - **Banco:** PostgreSQL, pg (driver)
 - **Autenticação:** JWT (jsonwebtoken)
-- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit, express-validator
+- **Segurança:** bcrypt/bcryptjs para hash de senhas, Helmet, express-rate-limit, express-validator, hpp
 - **Email:** nodemailer (com suporte Ethereal/Gmail/SMTP)
 - **Testes:** Jest, Supertest
 - **Logging:** Winston com rotação automática de arquivos
@@ -563,6 +563,10 @@ npm run docker:logs
   - Limites gerais: 100 req/15min por IP
   - Autenticação: 5 tentativas/15min
   - Reset de senha: 3 tentativas/1h
+- ✅ **HPP (HTTP Parameter Pollution)** - Proteção contra poluição de parâmetros
+  - Previne ataques com múltiplos parâmetros duplicados
+  - Mantém apenas o último valor de parâmetros duplicados
+  - Suporte a whitelist para parâmetros que devem aceitar arrays
 - ✅ Proteção contra brute force (bloqueio após 5 tentativas por 15 minutos)
 - ✅ Proteção contra enumeração de usuários (mensagens genéricas)
 
@@ -845,10 +849,12 @@ A documentação interativa completa está disponível via Swagger UI:
     - ✅ Mensagens de erro contextualizadas
     - ✅ Validação de tipos, comprimentos, formatos e enums
 
-15. **Implementar proteção HTTP Parameter Pollution (HPP)**
-    - Proteção contra poluição de parâmetros
-    - Prevenir arrays maliciosos em query strings
-    - Pacote: `hpp`
+15. ~~**Implementar proteção HTTP Parameter Pollution (HPP)**~~ ✅
+    - ✅ Proteção contra poluição de parâmetros
+    - ✅ Prevenir arrays maliciosos em query strings
+    - ✅ Mantém apenas o último valor de parâmetros duplicados
+    - ✅ Suporte a whitelist para parâmetros que devem aceitar arrays
+    - Implementado com `hpp`
 
 16. **Implementar CSRF Protection**
     - Proteção contra Cross-Site Request Forgery

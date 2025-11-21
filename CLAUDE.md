@@ -89,6 +89,7 @@ npm run docker:dev        # Desenvolvimento com rebuild
 - **helmet** - Middleware de segurança HTTP headers
 - **express-rate-limit** - Rate limiting para proteção contra abusos
 - **express-validator** - Validação e sanitização de dados de entrada
+- **hpp** - Proteção contra HTTP Parameter Pollution
 
 ## Configuração do Banco
 
@@ -246,6 +247,113 @@ Quando o rate limiting está ativo, a API retorna os seguintes headers:
 ✅ Proteção contra ataques DDoS básicos
 ✅ Limitação de tentativas de reset de senha
 ✅ Logs automáticos de violações de rate limit
+
+## Proteção HTTP Parameter Pollution (HPP)
+
+O projeto utiliza **hpp** para proteger contra ataques de poluição de parâmetros HTTP.
+
+### O que é HPP?
+
+HTTP Parameter Pollution (HPP) é um ataque onde um atacante envia múltiplos parâmetros HTTP com o mesmo nome para explorar vulnerabilidades na forma como a aplicação processa esses parâmetros.
+
+**Exemplo de ataque:**
+```
+GET /api/users?id=1&id=2&id=3
+```
+
+Sem proteção, diferentes frameworks tratam isso de formas diferentes:
+- Alguns usam o primeiro valor (id=1)
+- Outros usam o último valor (id=3)
+- Outros criam um array ([1, 2, 3])
+
+Isso pode levar a:
+- Bypass de validações
+- Acesso não autorizado
+- Manipulação de dados
+- Comportamento inesperado
+
+### Como o HPP Protege
+
+O middleware HPP:
+1. **Remove parâmetros duplicados** - Mantém apenas o último valor
+2. **Protege query strings, body e params**
+3. **Suporta whitelist** - Permite arrays em parâmetros específicos
+4. **Previne ataques de pollution** - Garante comportamento consistente
+
+### Configuração
+
+```javascript
+const hpp = require('hpp');
+
+app.use(hpp({
+  // Whitelist: parâmetros que podem ter múltiplos valores (arrays)
+  // Exemplo: ?tags=node&tags=express -> ['node', 'express']
+  whitelist: []
+}));
+```
+
+### Comportamento
+
+**Sem HPP:**
+```javascript
+// Requisição: GET /api/users?id=1&id=2&id=3
+req.query.id // Pode ser '1', '3', ou ['1', '2', '3'] dependendo do framework
+```
+
+**Com HPP:**
+```javascript
+// Requisição: GET /api/users?id=1&id=2&id=3
+req.query.id // Sempre será '3' (último valor)
+```
+
+### Whitelist para Arrays
+
+Se você precisa que certos parâmetros aceitem múltiplos valores:
+
+```javascript
+app.use(hpp({
+  whitelist: ['tags', 'categories', 'filters']
+}));
+
+// Requisição: GET /api/posts?tags=node&tags=express
+// req.query.tags = ['node', 'express'] ✅
+
+// Requisição: GET /api/users?id=1&id=2
+// req.query.id = '2' ✅ (protegido)
+```
+
+### Posicionamento no Middleware Stack
+
+O HPP deve ser aplicado **após** o parsing de JSON/URL-encoded e **antes** das rotas:
+
+```javascript
+// 1. Helmet (headers de segurança)
+app.use(helmet());
+
+// 2. CORS
+app.use(cors());
+
+// 3. Rate Limiting
+app.use(generalLimiter);
+
+// 4. Body Parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 5. HPP (protege parâmetros)
+app.use(hpp());
+
+// 6. Rotas
+app.use('/api', routes);
+```
+
+### Benefícios de Segurança
+
+✅ Previne bypass de validações através de parâmetros duplicados
+✅ Garante comportamento consistente em todas as requisições
+✅ Protege contra manipulação de dados via query strings
+✅ Evita vulnerabilidades de lógica de negócio
+✅ Compatível com validações do express-validator
 
 ## Sistema de Testes
 

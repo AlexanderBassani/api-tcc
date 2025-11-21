@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const hpp = require('hpp');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const userRoutes = require('./routes/userRoutes');
@@ -73,6 +74,15 @@ const urlEncodedLimit = process.env.URL_ENCODED_LIMIT || '10mb';
 
 app.use(express.json({ limit: jsonLimit }));
 app.use(express.urlencoded({ extended: true, limit: urlEncodedLimit }));
+
+// Proteção contra HTTP Parameter Pollution (HPP)
+// Previne ataques onde múltiplos parâmetros com o mesmo nome são enviados
+// Exemplo: ?id=1&id=2&id=3 -> apenas o último valor é mantido
+app.use(hpp({
+  // Whitelist: parâmetros que podem ter múltiplos valores (arrays)
+  // Exemplo: ?tags=node&tags=express -> ['node', 'express']
+  whitelist: []
+}));
 
 // Middleware de logging de requisições (todas as requisições HTTP)
 app.use(requestLogger);
