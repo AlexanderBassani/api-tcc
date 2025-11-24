@@ -26,7 +26,11 @@
       "Bash(npm test:*)",
       "Bash(npm run init-db:*)",
       "Bash(psql:*)",
-      "Bash(npm run seed:admin-prefs:*)"
+      "Bash(npm run seed:admin-prefs:*)",
+      "Bash(npm run test:*)",
+      "Bash(timeout 30 npm test)",
+      "Bash(git checkout:*)",
+      "Bash(docker compose:*)"
     ],
     "deny": [],
     "ask": []

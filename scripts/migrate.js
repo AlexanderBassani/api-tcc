@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../src/config/database');
 
-const migrationsDir = path.join(__dirname, '../src/migrations');
+const migrationsDir = path.join(__dirname, 'migrations');
 
 const createMigrationsTable = async () => {
   await pool.query(`
@@ -29,44 +29,57 @@ const removeMigration = async (name) => {
 
 const runMigrations = async () => {
   try {
-    console.log('Iniciando execução de migrations...\n');
+    console.log('🚀 Iniciando execução de migrations...\n');
 
     await createMigrationsTable();
     const executedMigrations = await getExecutedMigrations();
 
     const files = fs.readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.js'))
+      .filter(file => file.endsWith('.js') || file.endsWith('.sql'))
       .sort();
 
     let executed = 0;
 
     for (const file of files) {
-      const migrationName = file.replace('.js', '');
+      const migrationName = file.replace(/\.(js|sql)$/, '');
+      const fileType = file.endsWith('.sql') ? 'sql' : 'js';
 
       if (executedMigrations.includes(migrationName)) {
-        console.log(`⏭️  ${migrationName} - já executada`);
+        console.log(`⏭️  ${migrationName} (${fileType}) - já executada`);
         continue;
       }
 
-      const migration = require(path.join(migrationsDir, file));
+      console.log(`🔄 Executando: ${migrationName} (${fileType})`);
 
-      console.log(`🔄 Executando: ${migrationName}`);
-      await migration.up();
-      await recordMigration(migrationName);
-      console.log(`✅ ${migrationName} - concluída\n`);
+      try {
+        if (fileType === 'sql') {
+          // Executa migration SQL
+          const sqlContent = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+          await pool.query(sqlContent);
+        } else {
+          // Executa migration JavaScript
+          const migration = require(path.join(migrationsDir, file));
+          await migration.up();
+        }
 
-      executed++;
+        await recordMigration(migrationName);
+        console.log(`✅ ${migrationName} (${fileType}) - concluída\n`);
+        executed++;
+      } catch (error) {
+        console.error(`❌ Erro na migration ${migrationName} (${fileType}):`, error.message);
+        throw error;
+      }
     }
 
     if (executed === 0) {
       console.log('✨ Todas as migrations já foram executadas!');
     } else {
-      console.log(`\n✅ ${executed} migration(s) executada(s) com sucesso!`);
+      console.log(`\n🎉 ${executed} migration(s) executada(s) com sucesso!`);
     }
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Erro ao executar migrations:', error);
+    console.error('💥 Erro ao executar migrations:', error);
     process.exit(1);
   }
 };
@@ -111,19 +124,34 @@ const showStatus = async () => {
     const executedMigrations = await getExecutedMigrations();
 
     const files = fs.readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.js'))
+      .filter(file => file.endsWith('.js') || file.endsWith('.sql'))
       .sort();
 
     console.log('\n📋 Status das migrations:\n');
 
+    let jsCount = 0, sqlCount = 0, jsExecuted = 0, sqlExecuted = 0;
+
     for (const file of files) {
-      const migrationName = file.replace('.js', '');
+      const migrationName = file.replace(/\.(js|sql)$/, '');
+      const fileType = file.endsWith('.sql') ? 'sql' : 'js';
       const isExecuted = executedMigrations.includes(migrationName);
       const status = isExecuted ? '✅' : '⏸️';
-      console.log(`${status} ${migrationName}`);
+
+      if (fileType === 'sql') {
+        sqlCount++;
+        if (isExecuted) sqlExecuted++;
+      } else {
+        jsCount++;
+        if (isExecuted) jsExecuted++;
+      }
+
+      console.log(`${status} ${migrationName} (${fileType})`);
     }
 
-    console.log(`\n${executedMigrations.length}/${files.length} migrations executadas\n`);
+    console.log(`\n📊 Resumo:`);
+    console.log(`   JavaScript: ${jsExecuted}/${jsCount} executadas`);
+    console.log(`   SQL: ${sqlExecuted}/${sqlCount} executadas`);
+    console.log(`   Total: ${executedMigrations.length}/${files.length} executadas\n`);
 
     process.exit(0);
   } catch (error) {

@@ -38,6 +38,18 @@ npm run docker:logs       # Ver logs
 npm run docker:dev        # Desenvolvimento com rebuild
 ```
 
+### Migrations (Sistema Unificado)
+```bash
+npm run migrate:up        # Executar migrations pendentes (JS e SQL)
+npm run migrate:down      # Reverter última migration (apenas JS)
+npm run migrate:status    # Ver status de todas as migrations
+
+# Via Docker
+npm run docker:migrate:up        # Executar migrations via Docker
+npm run docker:migrate:down      # Reverter migrations via Docker
+npm run docker:migrate:status    # Status das migrations via Docker
+```
+
 ## Estrutura do Projeto
 
 - `src/` - Código fonte da aplicação
@@ -66,8 +78,8 @@ npm run docker:dev        # Desenvolvimento com rebuild
   - `*.test.js` - Arquivos de teste
 - `scripts/` - Scripts utilitários
   - `init-db.js` - Inicialização do banco
-  - `migrate.js` - Sistema de migrations
-- `migrations/` - Arquivos SQL de migrations
+  - `migrate.js` - Sistema unificado de migrations (JS + SQL)
+  - `migrations/` - Arquivos de migrations (JS e SQL) do sistema completo
 - `logs/` - Arquivos de log gerados pelo winston (gitignored)
 
 ## Tecnologias Utilizadas
@@ -575,9 +587,11 @@ O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
 - **Isolamento**: Cada teste cria e limpa seus próprios dados
 - **Helpers**: Funções utilitárias para gerar dados únicos
 - **Cobertura**: 78 testes cobrindo todas as funcionalidades principais
-- **Rate Limiting**: Automaticamente desabilitado em ambiente de testes
+- **Configuração Automática**: `NODE_ENV=test` configurado automaticamente
+- **Segurança**: CSRF e Rate Limiting automaticamente desabilitados em testes
 
 ### Arquivos de Teste
+- `__tests__/setup.js` - Configuração global automática (NODE_ENV=test)
 - `__tests__/app.test.js` - Testes básicos da aplicação
 - `__tests__/userRoutes.test.js` - Testes de rotas de usuários
 - `__tests__/authorization.test.js` - Testes de autorização e RBAC
@@ -979,6 +993,66 @@ Todos os validadores são testados:
 - ✅ Testes de campos obrigatórios faltando
 - ✅ Testes de formatos incorretos
 - ✅ Testes de limites de comprimento
+
+## Sistema de Migrations Completo
+
+O projeto possui um sistema completo de migrations SQL que implementa o diagrama ER descrito em `DIAGRAMA_ER_DESCRICAO.md`.
+
+### Migrations Disponíveis
+
+1. **000_add_role_to_users.sql** - Adiciona coluna role para RBAC (convertida de JS)
+2. **001_create_user_preferences.sql** - Tabela de preferências do usuário
+3. **002_create_vehicles.sql** - Tabela de veículos
+4. **003_create_maintenance_types.sql** - Tipos de manutenção padronizados
+5. **004_create_service_providers.sql** - Prestadores de serviço (oficinas)
+6. **005_create_maintenances.sql** - Registros de manutenção
+7. **006_create_maintenance_attachments.sql** - Anexos das manutenções
+8. **007_create_fuel_records.sql** - Registros de abastecimento
+9. **008_create_reminders.sql** - Sistema de lembretes e alertas
+10. **009_create_utility_functions.sql** - Funções e triggers auxiliares
+11. **010_create_sample_data.sql** - Dados iniciais e configurações
+
+**Sistema Unificado**: O script `migrate.js` agora suporta tanto arquivos `.js` quanto `.sql` na pasta `scripts/migrations/`, executando-os em ordem alfabética e registrando o tipo de cada migration.
+
+### Funcionalidades Implementadas
+
+#### Sistema de Veículos
+- Cadastro completo de veículos por usuário
+- Controle de quilometragem atual automático
+- Soft delete e status ativo/inativo
+
+#### Sistema de Manutenções
+- Registros detalhados de manutenções
+- Anexos (fotos, notas fiscais)
+- Vínculo com prestadores de serviço
+- Tipos padronizados de manutenção
+
+#### Sistema de Abastecimento
+- Registro de combustível com cálculo de consumo
+- Validação de sequência de quilometragem
+- Diferentes tipos de combustível
+
+#### Sistema de Lembretes Inteligentes
+- Lembretes por quilometragem ou data
+- Lembretes recorrentes automáticos
+- Alertas de documentos (IPVA, licenciamento)
+- Status de acompanhamento
+
+#### Funções Auxiliares
+- Atualização automática de quilometragem
+- Criação automática de lembretes padrão
+- Views para estatísticas e alertas
+- Cálculos de consumo e custos
+
+### Relacionamentos e Integridade
+- CASCADE DELETE para registros dependentes
+- SET NULL para referências opcionais
+- Constraints para validação de dados
+- Indexes para performance otimizada
+
+### Views Criadas
+- **pending_reminders**: Alertas pendentes com cálculos
+- **vehicle_statistics**: Estatísticas completas por veículo
 
 ## Notas para Desenvolvimento
 
