@@ -383,6 +383,128 @@ const validateRefreshToken = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de veículo
+ */
+const validateCreateVehicle = [
+  body('brand')
+    .trim()
+    .notEmpty().withMessage('Marca é obrigatória')
+    .isLength({ min: 1, max: 50 }).withMessage('Marca deve ter entre 1 e 50 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.]+$/).withMessage('Marca contém caracteres inválidos')
+    .escape(),
+
+  body('model')
+    .trim()
+    .notEmpty().withMessage('Modelo é obrigatório')
+    .isLength({ min: 1, max: 100 }).withMessage('Modelo deve ter entre 1 e 100 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.]+$/).withMessage('Modelo contém caracteres inválidos')
+    .escape(),
+
+  body('year')
+    .isInt({ min: 1900, max: new Date().getFullYear() + 1 }).withMessage(`Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}`)
+    .toInt(),
+
+  body('plate')
+    .trim()
+    .notEmpty().withMessage('Placa é obrigatória')
+    .isLength({ min: 7, max: 8 }).withMessage('Placa deve ter 7 ou 8 caracteres')
+    .matches(/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$|^[A-Z]{3}-?[0-9]{4}$/i).withMessage('Formato de placa inválido')
+    .toUpperCase()
+    .escape(),
+
+  body('color')
+    .optional()
+    .trim()
+    .isLength({ max: 30 }).withMessage('Cor deve ter no máximo 30 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ\s]+$/).withMessage('Cor deve conter apenas letras')
+    .escape(),
+
+  body('current_km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem deve ser um número positivo')
+    .toInt(),
+
+  body('purchase_date')
+    .optional()
+    .isISO8601().withMessage('Data de compra inválida')
+    .toDate(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 }).withMessage('Observações devem ter no máximo 1000 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de veículo
+ */
+const validateUpdateVehicle = [
+  body('brand')
+    .trim()
+    .notEmpty().withMessage('Marca é obrigatória')
+    .isLength({ min: 1, max: 50 }).withMessage('Marca deve ter entre 1 e 50 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.]+$/).withMessage('Marca contém caracteres inválidos')
+    .escape(),
+
+  body('model')
+    .trim()
+    .notEmpty().withMessage('Modelo é obrigatório')
+    .isLength({ min: 1, max: 100 }).withMessage('Modelo deve ter entre 1 e 100 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.]+$/).withMessage('Modelo contém caracteres inválidos')
+    .escape(),
+
+  body('year')
+    .isInt({ min: 1900, max: new Date().getFullYear() + 1 }).withMessage(`Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}`)
+    .toInt(),
+
+  body('plate')
+    .trim()
+    .notEmpty().withMessage('Placa é obrigatória')
+    .isLength({ min: 7, max: 8 }).withMessage('Placa deve ter 7 ou 8 caracteres')
+    .matches(/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$|^[A-Z]{3}-?[0-9]{4}$/i).withMessage('Formato de placa inválido')
+    .toUpperCase()
+    .escape(),
+
+  body('color')
+    .optional()
+    .trim()
+    .isLength({ max: 30 }).withMessage('Cor deve ter no máximo 30 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ\s]+$/).withMessage('Cor deve conter apenas letras')
+    .escape(),
+
+  body('current_km')
+    .isInt({ min: 0 }).withMessage('Quilometragem deve ser um número positivo')
+    .toInt(),
+
+  body('purchase_date')
+    .optional()
+    .isISO8601().withMessage('Data de compra inválida')
+    .toDate(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 }).withMessage('Observações devem ter no máximo 1000 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para ID de veículo em parâmetros de rota
+ */
+const validateVehicleId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do veículo inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -398,5 +520,8 @@ module.exports = {
   validateUserId,
   validateUserIdOptional,
   validateRefreshToken,
+  validateCreateVehicle,
+  validateUpdateVehicle,
+  validateVehicleId,
   handleValidationErrors
 };

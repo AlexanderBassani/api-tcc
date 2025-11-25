@@ -37,13 +37,16 @@ describe('User Routes API', () => {
 
   describe('POST /api/users/register', () => {
     test('Should register new user successfully', async () => {
+      const testUsername = generateTestUsername('johndoe_reg');
+      const testEmail = generateTestEmail('john.reg');
+      
       const response = await request(app)
         .post('/api/users/register')
         .send({
           first_name: 'John',
           last_name: 'Doe',
-          username: 'johndoe_reg',
-          email: 'john.reg@test.com',
+          username: testUsername,
+          email: testEmail,
           password: 'password123',
           phone: '+5511999999999',
           date_of_birth: '1990-01-01',
@@ -55,10 +58,10 @@ describe('User Routes API', () => {
       expect(response.body).toHaveProperty('user');
       expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('refreshToken');
-      expect(response.body.user.username).toBe('johndoe_reg');
+      expect(response.body.user.username).toBe(testUsername);
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['johndoe_reg']);
+      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
     });
 
     test('Should fail with missing required fields', async () => {
