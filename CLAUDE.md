@@ -634,13 +634,13 @@ module.exports = {
 
 ```bash
 # Executar todos os testes
-npm test
+npm run test
 
 # Executar testes em modo watch (auto-reload)
 npm run test:watch
 
 # Executar testes com cobertura
-npm test -- --coverage
+npm run test -- --coverage
 ```
 
 ### Exemplo de Teste com Dados Únicos

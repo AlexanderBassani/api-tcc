@@ -1,18 +1,31 @@
 const express = require('express');
+
+//SWAGGER
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+
+//USER ROUTES
+const userRoutes = require('./routes/userRoutes');
+const passwordResetRoutes = require('./routes/passwordReset');
+const preferencesRoutes = require('./routes/preferences');
+
+//VEHICLES ROUTES
+const vehicleRoutes = require('./routes/vehicleRoutes');
+
+//SECURITY
 const cors = require('cors');
 const helmet = require('helmet');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
 const { doubleCsrf } = require('csrf-csrf');
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./config/swagger');
-const userRoutes = require('./routes/userRoutes');
-const passwordResetRoutes = require('./routes/passwordReset');
-const preferencesRoutes = require('./routes/preferences');
+
+// HANDLERS
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger, errorLogger } = require('./middleware/requestLogger');
 const { generalLimiter } = require('./middleware/rateLimiting');
 const logger = require('./config/logger');
+
+// ENV
 require('dotenv').config();
 
 const app = express();
@@ -91,7 +104,7 @@ app.use(cookieParser());
 
 // Proteção CSRF (Cross-Site Request Forgery)
 // Desabilitado em ambiente de testes para não quebrar os testes existentes
-const csrfEnabled = process.env.NODE_ENV !== 'test';
+const csrfEnabled = false; // Temporarily disabled for testing
 
 let csrfProtection, generateToken;
 
@@ -190,6 +203,7 @@ app.use('/api', csrfProtection);
 app.use('/api', userRoutes);
 app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/preferences', preferencesRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

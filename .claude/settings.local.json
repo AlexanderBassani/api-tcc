@@ -30,7 +30,11 @@
       "Bash(npm run test:*)",
       "Bash(timeout 30 npm test)",
       "Bash(git checkout:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(npm run migrate:up:*)",
+      "Bash(NODE_ENV=test npm test)",
+      "Bash(npm --version)",
+      "Bash(NODE_ENV=test node -e \"console.log(''Node funcionando''); const jest = require(''jest''); console.log(''Jest carregado'');\")"
     ],
     "deny": [],
     "ask": []

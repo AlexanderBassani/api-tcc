@@ -8,5 +8,14 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFiles: ['<rootDir>/__tests__/setup.js']
+  setupFiles: ['<rootDir>/__tests__/setup.js'],
+  testEnvironment: 'node',
+  setupFilesAfterEnv: [],
+  globalSetup: undefined,
+  globalTeardown: undefined,
+  // Force NODE_ENV to be test
+  testEnvironment: 'node',
+  setupFiles: ['<rootDir>/__tests__/setup.js'],
+  forceExit: true,
+  testTimeout: 30000
 };

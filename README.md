@@ -880,6 +880,173 @@ A documentação interativa completa está disponível via Swagger UI:
 22. Adicionar notificação de login suspeito
 23. Implementar sessões de usuário com revogação
 
+## 📱 Integração WhatsApp (Planejada)
+
+### Funcionalidade de Notificações via WhatsApp
+
+O projeto terá integração com WhatsApp para notificações automáticas do sistema de manutenção de veículos.
+
+#### 🎯 **Objetivo**
+- Enviar lembretes automáticos de manutenção via WhatsApp
+- Notificar sobre vencimentos de documentos (IPVA, licenciamento)
+- Confirmar agendamentos e serviços realizados
+
+#### 🛠️ **Tecnologia Escolhida: WPPConnect**
+
+**Por que WPPConnect?**
+- ✅ **Gratuito**: Open source (MIT License)
+- ✅ **Brasileiro**: Comunidade e suporte em português
+- ✅ **API REST**: Fácil integração com backend Node.js
+- ✅ **Multi-sessão**: Suporte a múltiplas instâncias WhatsApp
+- ✅ **Completo**: Suporte a texto, imagens, documentos
+- ✅ **Ativo**: Desenvolvimento constante
+
+#### 📋 **Funcionalidades Planejadas**
+
+##### **1. Lembretes de Manutenção**
+```javascript
+// Exemplo de lembrete automático
+🚗 *LEMBRETE DE MANUTENÇÃO*
+
+📋 *Veículo:* Toyota Corolla (ABC-1234)
+⚙️ *Serviço:* Troca de Óleo
+📍 *KM Atual:* 95.000 km
+📅 *KM Recomendado:* 100.000 km
+⏰ *Prazo:* Próximos 5.000 km
+
+🏪 Não esqueça de agendar seu serviço!
+```
+
+##### **2. Alertas de Documentos**
+```javascript
+// Notificação de documentos
+📋 *ALERTA DE DOCUMENTAÇÃO*
+
+🚗 *Veículo:* Honda Civic (XYZ-5678)
+📄 *Documento:* IPVA 2024
+📅 *Vencimento:* 28/02/2024
+⚠️ *Status:* Vence em 15 dias!
+
+💡 Acesse o sistema para mais detalhes
+```
+
+##### **3. Confirmação de Serviços**
+```javascript
+// Comprovante de manutenção
+✅ *MANUTENÇÃO CONCLUÍDA*
+
+🔧 *Serviço:* Revisão Geral
+💰 *Valor:* R$ 450,00
+📅 *Data:* 15/11/2024
+🏪 *Oficina:* Auto Center Silva
+
+📎 *Comprovante anexo*
+```
+
+#### 🔧 **Integração Técnica**
+
+##### **Instalação**
+```bash
+npm install @wppconnect-team/wppconnect
+```
+
+##### **Estrutura Planejada**
+```javascript
+// services/whatsappService.js
+class WhatsAppNotificationService {
+  async sendMaintenanceReminder(userPhone, vehicle, reminder) {
+    // Integração com a view pending_reminders do sistema
+  }
+  
+  async sendDocumentAlert(userPhone, vehicle, document) {
+    // Alertas de documentos vencidos
+  }
+  
+  async sendServiceConfirmation(userPhone, maintenance) {
+    // Confirmação de serviços realizados
+  }
+}
+```
+
+##### **Integração com Migrations Existentes**
+O sistema utilizará as migrations já implementadas:
+- `pending_reminders` - View para alertas pendentes
+- `vehicle_statistics` - Estatísticas dos veículos
+- Sistema de triggers automáticos para notificações
+
+#### ⚡ **Implementação Futura**
+
+##### **Fase 1: Configuração Básica**
+- [ ] Setup do WPPConnect
+- [ ] Conexão e autenticação WhatsApp Web
+- [ ] Serviço básico de envio de mensagens
+
+##### **Fase 2: Lembretes de Manutenção**
+- [ ] Cron job para verificar lembretes pendentes
+- [ ] Templates de mensagens para cada tipo de manutenção
+- [ ] Integração com sistema de triggers do banco
+
+##### **Fase 3: Alertas de Documentos**
+- [ ] Sistema de alertas de IPVA, licenciamento
+- [ ] Notificações 30/15/7 dias antes do vencimento
+- [ ] Templates específicos por tipo de documento
+
+##### **Fase 4: Confirmações e Comprovantes**
+- [ ] Webhook para confirmação de serviços
+- [ ] Envio de comprovantes (imagens/PDFs)
+- [ ] Histórico de notificações enviadas
+
+#### 🔒 **Considerações de Segurança**
+- Validação de números de telefone
+- Rate limiting para evitar spam
+- Consentimento explícito para notificações
+- Backup de tokens de sessão WhatsApp
+- Monitoramento de falhas de envio
+
+#### 📱 **Configurações Necessárias**
+
+##### **Variáveis de Ambiente (.env)**
+```bash
+# WhatsApp Configuration
+WHATSAPP_ENABLED=true
+WHATSAPP_SESSION_NAME=vehicle-system
+WHATSAPP_HEADLESS=true
+WHATSAPP_WEBHOOK_URL=http://localhost:3000/webhook/whatsapp
+
+# Notification Settings
+NOTIFICATION_DEFAULT_ENABLED=true
+NOTIFICATION_MAINTENANCE_DAYS_BEFORE=7
+NOTIFICATION_DOCUMENT_DAYS_BEFORE=30,15,7
+```
+
+##### **Docker Support**
+```yaml
+# docker-compose.yml (extensão futura)
+services:
+  wppconnect:
+    image: wppconnect/wppconnect-server
+    ports:
+      - "21465:21465"
+    environment:
+      - SECRET_KEY=${WHATSAPP_SECRET_KEY}
+    volumes:
+      - ./data/whatsapp:/app/tokens
+```
+
+#### 🚀 **Como será ativado**
+1. Configurar número WhatsApp dedicado
+2. Executar setup inicial: `npm run setup:whatsapp`
+3. Escanear QR Code para autenticação
+4. Configurar templates de mensagens
+5. Ativar cron jobs para verificação automática
+
+#### 💡 **Benefícios Esperados**
+- **Maior engajamento**: Lembretes diretos no celular
+- **Redução de custos**: Sem SMS, apenas dados/WiFi
+- **Praticidade**: Não precisa abrir app ou email
+- **Automação**: Sistema 100% automatizado
+- **Personalização**: Mensagens específicas por veículo
+
 ### Recomendações de Pacotes de Segurança
 
 | Pacote | Finalidade | Prioridade |
