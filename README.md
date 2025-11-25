@@ -142,6 +142,26 @@ npm run init-db
 - `DELETE /api/preferences` - Resetar preferências do usuário autenticado
 - `DELETE /api/preferences/:userId` - Resetar preferências de outro usuário
 
+### Veículos (Requer autenticação JWT)
+- `GET /api/vehicles` - Listar veículos ativos do usuário autenticado
+- `GET /api/vehicles/inactive` - Listar veículos inativos do usuário autenticado
+- `GET /api/vehicles/:id` - Buscar veículo específico do usuário autenticado
+- `POST /api/vehicles` - Criar novo veículo para o usuário autenticado
+- `PUT /api/vehicles/:id` - Atualizar veículo do usuário autenticado
+- `PATCH /api/vehicles/:id/inactivate` - Inativar veículo (soft delete)
+- `PATCH /api/vehicles/:id/reactivate` - Reativar veículo
+- `DELETE /api/vehicles/:id` - Excluir veículo permanentemente (hard delete)
+- `GET /api/vehicles/user/:userId` - Listar veículos de usuário específico **(admin only)**
+
+### Manutenções (Requer autenticação JWT)
+- `GET /api/maintenances` - Listar manutenções do usuário autenticado
+- `GET /api/maintenances/:id` - Buscar manutenção específica
+- `POST /api/maintenances` - Criar registro de manutenção
+- `PUT /api/maintenances/:id` - Atualizar registro de manutenção
+- `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
+- `DELETE /api/maintenances/:id` - Excluir registro de manutenção
+- `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
+
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
 ```
@@ -189,6 +209,8 @@ As seguintes rotas requerem role de admin:
 - ✅ **POST /api/users** - Criar novo usuário
 - ✅ **PATCH /api/users/:id/deactivate** - Inativar usuário
 - ✅ **DELETE /api/users/:id** - Excluir usuário (soft/hard delete)
+- ✅ **GET /api/vehicles/user/:userId** - Listar veículos de usuário específico
+- ✅ **GET /api/maintenances/user/:userId** - Listar manutenções de usuário específico
 
 ### Mensagens de Erro
 Quando um usuário sem permissão tenta acessar uma rota protegida:
@@ -215,7 +237,9 @@ src/
 ├── controllers/     # Controladores
 │   ├── userController.js            # CRUD de usuários + auth
 │   ├── passwordResetController.js   # Reset de senha
-│   └── preferencesController.js     # Preferências do usuário
+│   ├── preferencesController.js     # Preferências do usuário
+│   ├── vehicleController.js         # CRUD de veículos
+│   └── maintenanceController.js     # CRUD de manutenções
 ├── middleware/      # Middlewares
 │   ├── auth.js          # Autenticação JWT e autorização
 │   ├── errorHandler.js  # Tratamento de erros
@@ -226,7 +250,9 @@ src/
 ├── routes/          # Rotas da API
 │   ├── userRoutes.js       # Rotas de usuários
 │   ├── passwordReset.js    # Rotas de reset de senha
-│   └── preferences.js      # Rotas de preferências
+│   ├── preferences.js      # Rotas de preferências
+│   ├── vehicleRoutes.js    # Rotas de veículos
+│   └── maintenanceRoutes.js # Rotas de manutenções
 ├── templates/       # Templates de email
 │   └── passwordResetEmail.js  # Template de reset de senha
 ├── utils/           # Utilitários
@@ -241,7 +267,8 @@ __tests__/          # Testes Jest
 ├── userRoutes.test.js  # Testes de rotas de usuários
 ├── authorization.test.js # Testes de autorização
 ├── passwordReset.test.js # Testes de reset de senha
-└── preferences.test.js   # Testes de preferências
+├── preferences.test.js   # Testes de preferências
+└── vehicleRoutes.test.js # Testes de rotas de veículos
 scripts/            # Scripts utilitários (init-db, migrate)
 .vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
@@ -440,9 +467,9 @@ npm test -- --coverage
 ### Estatísticas dos Testes
 
 ```
-✅ Test Suites: 5 passed, 5 total
-✅ Tests:       78 passed, 78 total
-⏱️  Time:        ~10s
+✅ Test Suites: 6 passed, 6 total
+✅ Tests:       143 passed, 143 total
+⏱️  Time:        ~15s
 ```
 
 ### Cobertura de Testes
@@ -454,6 +481,8 @@ Os testes cobrem todas as funcionalidades principais da API:
 - ✅ **CRUD de Usuários**: Criar, listar, buscar, atualizar, deletar
 - ✅ **Reset de Senha**: Solicitar, validar token, redefinir senha
 - ✅ **Preferências**: Obter, atualizar, resetar preferências de usuário
+- ✅ **CRUD de Veículos**: Criar, listar, buscar, atualizar, inativar, deletar
+- ✅ **CRUD de Manutenções**: Criar, listar, buscar, atualizar, marcar como concluída, deletar
 - ✅ **Validações**: Dados inválidos, usuários inexistentes, autenticação
 
 ### Helpers de Teste
@@ -487,6 +516,7 @@ const email = generateTestEmail('test'); // test_1732113420123_456@test.com
 | `authorization.test.js` | Testes de autorização RBAC | Permissões admin, acesso negado |
 | `passwordReset.test.js` | Testes de reset de senha | Solicitar, validar, redefinir |
 | `preferences.test.js` | Testes de preferências | Obter, atualizar, resetar |
+| `vehicleRoutes.test.js` | Testes de rotas de veículos | CRUD completo, admin endpoints |
 
 ### Exemplo de Teste
 
@@ -733,6 +763,8 @@ Todas as rotas da API utilizam validação:
 - ✅ 11 validações em `userRoutes.js`
 - ✅ 3 validações em `passwordReset.js`
 - ✅ 5 validações em `preferences.js`
+- ✅ 8 validações em `vehicleRoutes.js`
+- ✅ 6 validações em `maintenanceRoutes.js`
 
 ### Proteção Contra Ataques
 

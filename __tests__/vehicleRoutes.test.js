@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const pool = require('../src/config/database');
-const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
 
 // Ensure test environment
 process.env.NODE_ENV = 'test';
@@ -174,7 +174,7 @@ describe('Vehicle Routes API', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.details[0].message).toBe('Formato de placa inválido');
+      expect(response.body.details[0].message).toBe('Formato de placa inválido (use ABC1234 ou ABC1D23)');
     });
 
     test('Should fail with duplicate plate', async () => {
@@ -499,6 +499,8 @@ describe('Vehicle Routes API', () => {
     });
 
     test('Should handle old format plate ABC1234', async () => {
+      const testPlate = generateTestPlate('old');
+      
       const response = await request(app)
         .post('/api/vehicles')
         .set('Authorization', `Bearer ${userToken}`)
@@ -506,14 +508,20 @@ describe('Vehicle Routes API', () => {
           brand: 'Volkswagen',
           model: 'Gol',
           year: 2010,
-          plate: 'ABC1234'
+          plate: testPlate,
+          current_km: 0
         });
 
       expect(response.status).toBe(201);
-      expect(response.body.data.plate).toBe('ABC1234');
+      expect(response.body.data.plate).toBe(testPlate);
+
+      // Cleanup
+      await pool.query('DELETE FROM vehicles WHERE id = $1', [response.body.data.id]);
     });
 
     test('Should handle new format plate ABC1D23', async () => {
+      const testPlate = generateTestPlate('mercosul');
+      
       const response = await request(app)
         .post('/api/vehicles')
         .set('Authorization', `Bearer ${userToken}`)
@@ -521,11 +529,172 @@ describe('Vehicle Routes API', () => {
           brand: 'Chevrolet',
           model: 'Onix',
           year: 2020,
-          plate: 'ABC1D23'
+          plate: testPlate,
+          current_km: 0
         });
 
       expect(response.status).toBe(201);
-      expect(response.body.data.plate).toBe('ABC1D23');
+      expect(response.body.data.plate).toBe(testPlate);
+
+      // Cleanup
+      await pool.query('DELETE FROM vehicles WHERE id = $1', [response.body.data.id]);
+    });
+  });
+
+  describe('GET /api/vehicles/user/:userId (Admin Only)', () => {
+    let regularUserId;
+    let regularUserToken;
+    let regularUserVehicleId;
+
+    beforeAll(async () => {
+      // Criar um usuário regular com veículos para testar
+      const regularUsername = generateTestUsername('regularuser');
+      const regularEmail = generateTestEmail('regularuser');
+
+      const regularRegisterResponse = await request(app)
+        .post('/api/users/register')
+        .send({
+          first_name: 'Regular',
+          last_name: 'User',
+          username: regularUsername,
+          email: regularEmail,
+          password: 'password123'
+        });
+
+      regularUserId = regularRegisterResponse.body.user.id;
+
+      // Login do usuário regular
+      const regularLoginResponse = await request(app)
+        .post('/api/users/login')
+        .send({
+          login: regularUsername,
+          password: 'password123'
+        });
+      regularUserToken = regularLoginResponse.body.token;
+
+      // Criar um veículo para o usuário regular
+      const vehicleResponse = await request(app)
+        .post('/api/vehicles')
+        .set('Authorization', `Bearer ${regularUserToken}`)
+        .send({
+          brand: 'Honda',
+          model: 'Civic',
+          year: 2021,
+          plate: generateTestPlate(),
+          current_km: 25000
+        });
+      regularUserVehicleId = vehicleResponse.body.data.id;
+    });
+
+    afterAll(async () => {
+      // Limpar dados do usuário regular
+      await pool.query('DELETE FROM vehicles WHERE user_id = $1', [regularUserId]);
+      await pool.query('DELETE FROM users WHERE id = $1', [regularUserId]);
+    });
+
+    test('Should allow admin to get user vehicles', async () => {
+      const response = await request(app)
+        .get(`/api/vehicles/user/${regularUserId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.user).toMatchObject({
+        id: regularUserId,
+        name: 'Regular User',
+        username: expect.stringContaining('regularuser')
+      });
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.count).toBeGreaterThan(0);
+      expect(response.body.data[0]).toMatchObject({
+        brand: 'Honda',
+        model: 'Civic',
+        is_active: true
+      });
+    });
+
+    test('Should allow admin to get user vehicles including inactive', async () => {
+      // Primeiro, inativar o veículo
+      await request(app)
+        .patch(`/api/vehicles/${regularUserVehicleId}/inactivate`)
+        .set('Authorization', `Bearer ${regularUserToken}`);
+
+      const response = await request(app)
+        .get(`/api/vehicles/user/${regularUserId}?include_inactive=true`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.some(v => !v.is_active)).toBe(true);
+      expect(response.body.filters.include_inactive).toBe('true');
+
+      // Reativar o veículo para outros testes
+      await request(app)
+        .patch(`/api/vehicles/${regularUserVehicleId}/reactivate`)
+        .set('Authorization', `Bearer ${regularUserToken}`);
+    });
+
+    test('Should deny regular user access to other user vehicles', async () => {
+      const response = await request(app)
+        .get(`/api/vehicles/user/${userId}`)
+        .set('Authorization', `Bearer ${regularUserToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Acesso negado');
+    });
+
+    test('Should fail with invalid user ID', async () => {
+      const response = await request(app)
+        .get('/api/vehicles/user/99999')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Usuário não encontrado');
+    });
+
+    test('Should fail with invalid user ID format', async () => {
+      const response = await request(app)
+        .get('/api/vehicles/user/invalid')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(400);
+    });
+
+    test('Should fail without authentication', async () => {
+      const response = await request(app)
+        .get(`/api/vehicles/user/${regularUserId}`);
+
+      expect(response.status).toBe(401);
+    });
+
+    test('Should return empty array for user with no vehicles', async () => {
+      // Criar usuário sem veículos
+      const emptyUserUsername = generateTestUsername('emptyuser');
+      const emptyUserEmail = generateTestEmail('emptyuser');
+
+      const emptyUserRegisterResponse = await request(app)
+        .post('/api/users/register')
+        .send({
+          first_name: 'Empty',
+          last_name: 'User',
+          username: emptyUserUsername,
+          email: emptyUserEmail,
+          password: 'password123'
+        });
+
+      const emptyUserId = emptyUserRegisterResponse.body.user.id;
+
+      const response = await request(app)
+        .get(`/api/vehicles/user/${emptyUserId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toEqual([]);
+      expect(response.body.count).toBe(0);
+
+      // Cleanup
+      await pool.query('DELETE FROM users WHERE id = $1', [emptyUserId]);
     });
   });
 });

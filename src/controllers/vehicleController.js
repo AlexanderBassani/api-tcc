@@ -492,6 +492,82 @@ const getInactiveVehicles = async (req, res) => {
   }
 };
 
+// Listar veículos de um usuário específico (apenas para admin)
+const getUserVehiclesByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { include_inactive = false } = req.query;
+    
+    // Verificar se o usuário existe
+    const userCheck = await pool.query(
+      'SELECT id, first_name, last_name, username, email FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+        message: 'O usuário especificado não existe'
+      });
+    }
+    
+    const user = userCheck.rows[0];
+    
+    // Construir query baseado nos filtros
+    let query = `
+      SELECT id, brand, model, year, plate, color, current_km, 
+             purchase_date, is_active, notes, created_at, updated_at
+      FROM vehicles 
+      WHERE user_id = $1
+    `;
+    
+    const queryParams = [userId];
+    
+    // Filtrar apenas veículos ativos por padrão
+    if (include_inactive === 'false' || include_inactive === false) {
+      query += ' AND is_active = true';
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    
+    const result = await pool.query(query, queryParams);
+    
+    logger.info('Admin retrieved user vehicles', { 
+      adminId: req.user.id,
+      targetUserId: userId,
+      vehicleCount: result.rows.length,
+      includeInactive: include_inactive
+    });
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        username: user.username,
+        email: user.email
+      },
+      data: result.rows,
+      count: result.rows.length,
+      filters: {
+        include_inactive: include_inactive
+      }
+    });
+  } catch (error) {
+    logger.error('Error retrieving user vehicles by admin', {
+      adminId: req.user.id,
+      targetUserId: req.params.userId,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      error: 'Erro interno do servidor',
+      message: 'Não foi possível buscar os veículos do usuário'
+    });
+  }
+};
+
 module.exports = {
   getUserVehicles,
   getVehicleById,
@@ -500,5 +576,6 @@ module.exports = {
   inactivateVehicle,
   reactivateVehicle,
   deleteVehicle,
-  getInactiveVehicles
+  getInactiveVehicles,
+  getUserVehiclesByUserId
 };

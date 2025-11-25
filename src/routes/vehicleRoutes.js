@@ -7,13 +7,15 @@ const {
     inactivateVehicle,
     reactivateVehicle,
     deleteVehicle,
-    getInactiveVehicles
+    getInactiveVehicles,
+    getUserVehiclesByUserId
 } = require('../controllers/vehicleController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const {
     validateCreateVehicle,
     validateUpdateVehicle,
-    validateVehicleId
+    validateVehicleId,
+    validateUserIdParam
 } = require('../middleware/validation');
 
 const router = express.Router();
@@ -43,5 +45,8 @@ router.patch('/:id/reactivate', authenticateToken, validateVehicleId, reactivate
 
 // DELETE /api/vehicles/:id - Excluir veículo permanentemente (hard delete)
 router.delete('/:id', authenticateToken, validateVehicleId, deleteVehicle);
+
+// GET /api/vehicles/user/:userId - Listar veículos de usuário específico (apenas admin)
+router.get('/user/:userId', authenticateToken, authorizeRoles('admin'), validateUserIdParam, getUserVehiclesByUserId);
 
 module.exports = router;

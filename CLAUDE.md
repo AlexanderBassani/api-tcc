@@ -60,10 +60,14 @@ npm run docker:migrate:status    # Status das migrations via Docker
     - `userController.js` - CRUD de usuários e autenticação
     - `passwordResetController.js` - Reset de senha
     - `preferencesController.js` - Preferências de usuário
+    - `vehicleController.js` - CRUD de veículos
+    - `maintenanceController.js` - CRUD de manutenções
   - `routes/` - Definição das rotas
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
     - `preferences.js` - Rotas de preferências
+    - `vehicleRoutes.js` - Rotas de veículos
+    - `maintenanceRoutes.js` - Rotas de manutenções
   - `middleware/` - Middlewares
     - `auth.js` - Autenticação JWT e autorização RBAC
     - `errorHandler.js` - Tratamento de erros
@@ -586,7 +590,7 @@ O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
 - **HTTP Testing**: Supertest para testar endpoints da API
 - **Isolamento**: Cada teste cria e limpa seus próprios dados
 - **Helpers**: Funções utilitárias para gerar dados únicos
-- **Cobertura**: 78 testes cobrindo todas as funcionalidades principais
+- **Cobertura**: 143 testes cobrindo todas as funcionalidades principais
 - **Configuração Automática**: `NODE_ENV=test` configurado automaticamente
 - **Segurança**: CSRF e Rate Limiting automaticamente desabilitados em testes
 
@@ -597,24 +601,29 @@ O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
 - `__tests__/authorization.test.js` - Testes de autorização e RBAC
 - `__tests__/passwordReset.test.js` - Testes de reset de senha
 - `__tests__/preferences.test.js` - Testes de preferências de usuário
+- `__tests__/vehicleRoutes.test.js` - Testes de rotas de veículos
 
 ### Helpers de Teste (`__tests__/helpers/testUtils.js`)
 
 O projeto inclui helpers para gerar dados únicos em cada execução de teste, evitando conflitos de chave duplicada:
 
 ```javascript
-const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
 
 // Gerar username único (máx 30 caracteres)
 const username = generateTestUsername('admin'); // admin_420123_45
 
 // Gerar email único
 const email = generateTestEmail('test'); // test_1732113420123_456@test.com
+
+// Gerar placa única (Mercosul ou antiga)
+const plate = generateTestPlate('mercosul'); // ABC1D23 ou ABC1234
 ```
 
 **Padrão de geração:**
 - **Username**: `{base}_{timestamp_6digitos}_{random_0-99}` (ex: `admin_420123_45`)
 - **Email**: `{base}_{timestamp}_{random_0-999}@test.com`
+- **Placa**: Formato Mercosul (`ABC1D23`) ou antigo (`ABC1234`)
 
 ### Configuração Jest
 
@@ -646,29 +655,28 @@ npm run test -- --coverage
 ### Exemplo de Teste com Dados Únicos
 
 ```javascript
-const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
 
-test('Should create user successfully', async () => {
-  const testUsername = generateTestUsername('newuser');
-  const testEmail = generateTestEmail('newuser.test');
+test('Should create vehicle successfully', async () => {
+  const testPlate = generateTestPlate('mercosul');
 
   const response = await request(app)
-    .post('/api/users')
-    .set('Authorization', `Bearer ${adminToken}`)
+    .post('/api/vehicles')
+    .set('Authorization', `Bearer ${userToken}`)
     .send({
-      first_name: 'Test',
-      last_name: 'User',
-      username: testUsername,
-      email: testEmail,
-      password: 'password123',
-      role: 'user'
+      brand: 'Toyota',
+      model: 'Corolla',
+      year: 2020,
+      plate: testPlate,
+      color: 'Branco',
+      current_km: 15000
     });
 
   expect(response.status).toBe(201);
-  expect(response.body.data.username).toBe(testUsername);
+  expect(response.body.data.plate).toBe(testPlate);
 
   // Limpar dados de teste
-  await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
+  await pool.query('DELETE FROM vehicles WHERE plate = $1', [testPlate]);
 });
 ```
 
@@ -696,10 +704,10 @@ test('Should create user successfully', async () => {
 ### Resultados dos Testes
 
 ```
-Test Suites: 5 passed, 5 total
-Tests:       78 passed, 78 total
+Test Suites: 6 passed, 6 total
+Tests:       143 passed, 143 total
 Snapshots:   0 total
-Time:        ~10s
+Time:        ~15s
 ```
 
 **Cobertura de testes:**
@@ -708,6 +716,8 @@ Time:        ~10s
 - ✅ CRUD de usuários (criar, listar, buscar, atualizar, deletar)
 - ✅ Reset de senha (solicitar, validar, redefinir)
 - ✅ Preferências de usuário (obter, atualizar, resetar)
+- ✅ CRUD de veículos (criar, listar, buscar, atualizar, inativar, deletar)
+- ✅ CRUD de manutenções (criar, listar, buscar, atualizar, marcar como concluída, deletar)
 - ✅ Validações e erros (dados inválidos, usuários inexistentes, etc)
 
 ## Sistema de Logs
@@ -805,6 +815,26 @@ A documentação completa da API está disponível através do Swagger UI:
 - `DELETE /api/preferences/:userId` - Resetar preferências de outro usuário
 - `PATCH /api/preferences/theme` - Atualizar apenas tema (usuário autenticado)
 
+### Veículos (Autenticados)
+- `GET /api/vehicles` - Listar veículos ativos do usuário autenticado
+- `GET /api/vehicles/inactive` - Listar veículos inativos do usuário autenticado
+- `GET /api/vehicles/:id` - Buscar veículo específico do usuário autenticado
+- `POST /api/vehicles` - Criar novo veículo para o usuário autenticado
+- `PUT /api/vehicles/:id` - Atualizar veículo do usuário autenticado
+- `PATCH /api/vehicles/:id/inactivate` - Inativar veículo (soft delete)
+- `PATCH /api/vehicles/:id/reactivate` - Reativar veículo
+- `DELETE /api/vehicles/:id` - Excluir veículo permanentemente (hard delete)
+- `GET /api/vehicles/user/:userId` - Listar veículos de usuário específico **(admin only)**
+
+### Manutenções (Autenticados)
+- `GET /api/maintenances` - Listar manutenções do usuário autenticado
+- `GET /api/maintenances/:id` - Buscar manutenção específica
+- `POST /api/maintenances` - Criar registro de manutenção
+- `PUT /api/maintenances/:id` - Atualizar registro de manutenção
+- `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
+- `DELETE /api/maintenances/:id` - Excluir registro de manutenção
+- `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
+
 #### Campos de Preferências:
 - **theme_mode**: 'light', 'dark', 'system' (segue o sistema operacional) - Padrão: 'system'
 - **theme_color**: Cor principal do tema (string) - Padrão: 'blue'
@@ -815,6 +845,32 @@ A documentação completa da API está disponível através do Swagger UI:
 - **reduce_motion**: Reduzir movimento para acessibilidade (boolean) - Padrão: false
 
 **Nota**: Quando um usuário é criado (via registro ou criação admin), as preferências padrão são automaticamente criadas no banco de dados com os valores acima. O usuário pode então modificá-las usando PUT ou PATCH conforme desejar.
+
+#### Campos de Veículos:
+- **brand**: Marca do veículo (string, obrigatório)
+- **model**: Modelo do veículo (string, obrigatório)
+- **year**: Ano do veículo (inteiro, 1900-2030, obrigatório)
+- **plate**: Placa do veículo (string única, formatos Mercosul ou antigo, obrigatório)
+- **color**: Cor do veículo (string, opcional)
+- **current_km**: Quilometragem atual (inteiro >= 0, padrão: 0)
+- **purchase_date**: Data de aquisição (date, opcional)
+- **notes**: Observações adicionais (string, opcional)
+- **is_active**: Status ativo/inativo (boolean, padrão: true)
+
+**Nota**: Cada veículo é automaticamente vinculado ao usuário que o criou. Apenas o proprietário pode visualizar e modificar seus veículos, exceto admins que podem listar veículos de qualquer usuário.
+
+#### Campos de Manutenções:
+- **vehicle_id**: ID do veículo (inteiro, obrigatório, deve pertencer ao usuário)
+- **maintenance_type_id**: Tipo de manutenção (inteiro, opcional)
+- **service_provider_id**: Prestador de serviço (inteiro, opcional)
+- **description**: Descrição da manutenção (string, obrigatório)
+- **cost**: Custo da manutenção (decimal >= 0, obrigatório)
+- **service_date**: Data do serviço (date, obrigatório)
+- **km_at_service**: Quilometragem no momento do serviço (inteiro >= 0, obrigatório)
+- **is_completed**: Status de conclusão (boolean, padrão: false)
+- **notes**: Observações adicionais (string, opcional)
+
+**Nota**: Cada manutenção é vinculada a um veículo específico. Apenas o proprietário do veículo pode criar e gerenciar suas manutenções, exceto admins que podem listar manutenções de qualquer usuário.
 
 ## Sistema de Autorização (RBAC)
 
@@ -839,6 +895,8 @@ router.post('/posts', authenticateToken, authorizeRoles('admin', 'moderator'), c
 - Criar usuário (POST /api/users)
 - Inativar usuário (PATCH /api/users/:id/deactivate)
 - Excluir usuário (DELETE /api/users/:id)
+- Listar veículos de usuário específico (GET /api/vehicles/user/:userId)
+- Listar manutenções de usuário específico (GET /api/maintenances/user/:userId)
 
 ### Mensagens de Erro
 O middleware retorna mensagens detalhadas em caso de acesso negado:
@@ -876,6 +934,13 @@ O arquivo contém validadores específicos para cada tipo de operação:
 - `validateUserId` - Validação de ID de usuário em parâmetros de rota
 - `validateUserIdOptional` - Validação opcional de ID de usuário
 - `validateRefreshToken` - Validação de refresh token
+- `validateCreateVehicle` - Validação para criação de veículos
+- `validateUpdateVehicle` - Validação para atualização de veículos
+- `validateVehicleId` - Validação de ID de veículo em parâmetros de rota
+- `validateUserIdParam` - Validação de ID de usuário em parâmetros de rota (admin)
+- `validateCreateMaintenance` - Validação para criação de manutenções
+- `validateUpdateMaintenance` - Validação para atualização de manutenções
+- `validateMaintenanceId` - Validação de ID de manutenção em parâmetros de rota
 
 ### Características da Validação
 
@@ -893,6 +958,7 @@ O arquivo contém validadores específicos para cada tipo de operação:
 - Regex para nomes: `^[a-zA-ZÀ-ÿ\s]+$` (inclui acentos)
 - Regex para telefone: `^[0-9\s\-\+\(\)]+$`
 - Regex para idioma: `^[a-z]{2}(-[A-Z]{2})?$` (ex: pt-BR)
+- Regex para placa de veículo: `^[A-Z]{3}[0-9][A-Z][0-9]{2}$|^[A-Z]{3}[0-9]{4}$/i` (Mercosul e antiga)
 - Formato de email validado e normalizado
 
 #### Sanitização
@@ -961,12 +1027,12 @@ O sistema adapta mensagens de erro baseado no contexto:
 ### Uso nas Rotas
 
 ```javascript
-const { validateRegister, validateLogin } = require('../middleware/validation');
+const { validateRegister, validateLogin, validateCreateVehicle } = require('../middleware/validation');
 
 // Aplicar validação antes do controller
 router.post('/users/register', authLimiter, validateRegister, register);
 router.post('/users/login', authLimiter, validateLogin, login);
-router.put('/users/profile', authenticateToken, validateUpdateProfile, updateProfile);
+router.post('/vehicles', authenticateToken, validateCreateVehicle, createVehicle);
 ```
 
 ### Validações por Rota
@@ -974,6 +1040,8 @@ router.put('/users/profile', authenticateToken, validateUpdateProfile, updatePro
 - **userRoutes.js**: 11 validações aplicadas
 - **passwordReset.js**: 3 validações aplicadas
 - **preferences.js**: 5 validações aplicadas
+- **vehicleRoutes.js**: 8 validações aplicadas
+- **maintenanceRoutes.js**: 6 validações aplicadas
 
 ### Proteção Contra Ataques
 
@@ -987,7 +1055,7 @@ A validação protege contra:
 ### Testes de Validação
 
 Todos os validadores são testados:
-- ✅ 78 testes passando (100% de sucesso)
+- ✅ 143 testes passando (100% de sucesso)
 - ✅ Testes de dados válidos
 - ✅ Testes de dados inválidos
 - ✅ Testes de campos obrigatórios faltando

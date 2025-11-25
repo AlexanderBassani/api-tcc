@@ -24,7 +24,27 @@ function generateTestEmail(base) {
   return `${base}_${timestamp}_${random}@test.com`;
 }
 
+/**
+ * Gera uma placa única para testes
+ * @param {string} format - Formato da placa ('old' para ABC1234, 'mercosul' para ABC1D23)
+ * @returns {string} Placa única
+ */
+function generateTestPlate(format = 'mercosul') {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const getRandomLetter = () => letters[Math.floor(Math.random() * letters.length)];
+  const getRandomNumber = () => Math.floor(Math.random() * 10);
+  
+  if (format === 'old') {
+    // Formato antigo: ABC1234
+    return `${getRandomLetter()}${getRandomLetter()}${getRandomLetter()}${getRandomNumber()}${getRandomNumber()}${getRandomNumber()}${getRandomNumber()}`;
+  } else {
+    // Formato Mercosul: ABC1D23
+    return `${getRandomLetter()}${getRandomLetter()}${getRandomLetter()}${getRandomNumber()}${getRandomLetter()}${getRandomNumber()}${getRandomNumber()}`;
+  }
+}
+
 module.exports = {
   generateTestUsername,
-  generateTestEmail
+  generateTestEmail,
+  generateTestPlate
 };

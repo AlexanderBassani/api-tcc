@@ -409,7 +409,7 @@ const validateCreateVehicle = [
     .trim()
     .notEmpty().withMessage('Placa é obrigatória')
     .isLength({ min: 7, max: 8 }).withMessage('Placa deve ter 7 ou 8 caracteres')
-    .matches(/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$|^[A-Z]{3}-?[0-9]{4}$/i).withMessage('Formato de placa inválido')
+    .matches(/^[A-Z]{3}[0-9][A-Z][0-9]{2}$|^[A-Z]{3}[0-9]{4}$/i).withMessage('Formato de placa inválido (use ABC1234 ou ABC1D23)')
     .toUpperCase()
     .escape(),
 
@@ -465,7 +465,7 @@ const validateUpdateVehicle = [
     .trim()
     .notEmpty().withMessage('Placa é obrigatória')
     .isLength({ min: 7, max: 8 }).withMessage('Placa deve ter 7 ou 8 caracteres')
-    .matches(/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$|^[A-Z]{3}-?[0-9]{4}$/i).withMessage('Formato de placa inválido')
+    .matches(/^[A-Z]{3}[0-9][A-Z][0-9]{2}$|^[A-Z]{3}[0-9]{4}$/i).withMessage('Formato de placa inválido (use ABC1234 ou ABC1D23)')
     .toUpperCase()
     .escape(),
 
@@ -505,6 +505,165 @@ const validateVehicleId = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de manutenção
+ */
+const validateCreateMaintenance = [
+  body('vehicle_id')
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número inteiro positivo')
+    .toInt(),
+
+  body('service_provider_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do prestador de serviço deve ser um número inteiro positivo')
+    .toInt(),
+
+  body('type')
+    .trim()
+    .notEmpty().withMessage('Tipo de manutenção é obrigatório')
+    .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
+    .escape(),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 2000 }).withMessage('Descrição deve ter no máximo 2000 caracteres')
+    .escape(),
+
+  body('cost')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Custo deve ser um valor positivo')
+    .toFloat(),
+
+  body('km_at_service')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem no serviço deve ser um número positivo')
+    .toInt(),
+
+  body('service_date')
+    .isISO8601().withMessage('Data de serviço inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  body('next_service_km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Próxima quilometragem de serviço deve ser um número positivo')
+    .toInt(),
+
+  body('next_service_date')
+    .optional()
+    .isISO8601().withMessage('Próxima data de serviço inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  body('invoice_number')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Número da nota fiscal deve ter no máximo 50 caracteres')
+    .matches(/^[a-zA-Z0-9\-\/\s]+$/).withMessage('Número da nota fiscal contém caracteres inválidos')
+    .escape(),
+
+  body('warranty_until')
+    .optional()
+    .isISO8601().withMessage('Data de garantia inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de manutenção
+ */
+const validateUpdateMaintenance = [
+  body('service_provider_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do prestador de serviço deve ser um número inteiro positivo')
+    .toInt(),
+
+  body('type')
+    .trim()
+    .notEmpty().withMessage('Tipo de manutenção é obrigatório')
+    .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
+    .escape(),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 2000 }).withMessage('Descrição deve ter no máximo 2000 caracteres')
+    .escape(),
+
+  body('cost')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Custo deve ser um valor positivo')
+    .toFloat(),
+
+  body('km_at_service')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem no serviço deve ser um número positivo')
+    .toInt(),
+
+  body('service_date')
+    .isISO8601().withMessage('Data de serviço inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  body('next_service_km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Próxima quilometragem de serviço deve ser um número positivo')
+    .toInt(),
+
+  body('next_service_date')
+    .optional()
+    .isISO8601().withMessage('Próxima data de serviço inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  body('invoice_number')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Número da nota fiscal deve ter no máximo 50 caracteres')
+    .matches(/^[a-zA-Z0-9\-\/\s]+$/).withMessage('Número da nota fiscal contém caracteres inválidos')
+    .escape(),
+
+  body('warranty_until')
+    .optional()
+    .isISO8601().withMessage('Data de garantia inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para ID de manutenção em parâmetros de rota
+ */
+const validateMaintenanceId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID da manutenção inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para vehicleId em parâmetros de rota de manutenções
+ */
+const validateVehicleIdParam = [
+  param('vehicleId')
+    .isInt({ min: 1 }).withMessage('ID do veículo inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para userId em parâmetros de rota
+ */
+const validateUserIdParam = [
+  param('userId')
+    .isInt({ min: 1 }).withMessage('ID de usuário inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -523,5 +682,10 @@ module.exports = {
   validateCreateVehicle,
   validateUpdateVehicle,
   validateVehicleId,
+  validateCreateMaintenance,
+  validateUpdateMaintenance,
+  validateMaintenanceId,
+  validateVehicleIdParam,
+  validateUserIdParam,
   handleValidationErrors
 };
