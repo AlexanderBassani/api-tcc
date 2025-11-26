@@ -14,6 +14,7 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 
 //MAINTENANCES ROUTES
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const maintenanceAttachmentRoutes = require('./routes/maintenanceAttachmentRoutes');
 
 //SECURITY
 const cors = require('cors');
@@ -208,6 +209,7 @@ app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
+app.use('/api/maintenance-attachments', maintenanceAttachmentRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

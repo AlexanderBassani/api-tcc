@@ -62,12 +62,14 @@ npm run docker:migrate:status    # Status das migrations via Docker
     - `preferencesController.js` - Preferências de usuário
     - `vehicleController.js` - CRUD de veículos
     - `maintenanceController.js` - CRUD de manutenções
+    - `maintenanceAttachmentController.js` - Upload e gestão de anexos de manutenção
   - `routes/` - Definição das rotas
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
     - `preferences.js` - Rotas de preferências
     - `vehicleRoutes.js` - Rotas de veículos
     - `maintenanceRoutes.js` - Rotas de manutenções
+    - `maintenanceAttachmentRoutes.js` - Rotas de anexos de manutenção
   - `middleware/` - Middlewares
     - `auth.js` - Autenticação JWT e autorização RBAC
     - `errorHandler.js` - Tratamento de erros
@@ -108,6 +110,7 @@ npm run docker:migrate:status    # Status das migrations via Docker
 - **hpp** - Proteção contra HTTP Parameter Pollution
 - **csrf-csrf** - Proteção contra Cross-Site Request Forgery
 - **cookie-parser** - Parser de cookies (necessário para CSRF)
+- **multer** - Upload de arquivos (usado para anexos de manutenção)
 
 ## Configuração do Banco
 
@@ -590,7 +593,7 @@ O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
 - **HTTP Testing**: Supertest para testar endpoints da API
 - **Isolamento**: Cada teste cria e limpa seus próprios dados
 - **Helpers**: Funções utilitárias para gerar dados únicos
-- **Cobertura**: 143 testes cobrindo todas as funcionalidades principais
+- **Cobertura**: 176 testes cobrindo todas as funcionalidades principais
 - **Configuração Automática**: `NODE_ENV=test` configurado automaticamente
 - **Segurança**: CSRF e Rate Limiting automaticamente desabilitados em testes
 
@@ -602,6 +605,8 @@ O projeto utiliza **Jest** com **Supertest** para testes automatizados da API.
 - `__tests__/passwordReset.test.js` - Testes de reset de senha
 - `__tests__/preferences.test.js` - Testes de preferências de usuário
 - `__tests__/vehicleRoutes.test.js` - Testes de rotas de veículos
+- `__tests__/maintenanceRoutes.test.js` - Testes de rotas de manutenções
+- `__tests__/maintenanceAttachmentRoutes.test.js` - Testes de anexos de manutenção (34 testes)
 
 ### Helpers de Teste (`__tests__/helpers/testUtils.js`)
 
@@ -704,10 +709,10 @@ test('Should create vehicle successfully', async () => {
 ### Resultados dos Testes
 
 ```
-Test Suites: 6 passed, 6 total
-Tests:       143 passed, 143 total
+Test Suites: 8 passed, 8 total
+Tests:       176 passed, 176 total
 Snapshots:   0 total
-Time:        ~15s
+Time:        ~7s
 ```
 
 **Cobertura de testes:**
@@ -718,7 +723,9 @@ Time:        ~15s
 - ✅ Preferências de usuário (obter, atualizar, resetar)
 - ✅ CRUD de veículos (criar, listar, buscar, atualizar, inativar, deletar)
 - ✅ CRUD de manutenções (criar, listar, buscar, atualizar, marcar como concluída, deletar)
+- ✅ **Anexos de manutenção** (upload, download, listar, atualizar, excluir, validação de tipos)
 - ✅ Validações e erros (dados inválidos, usuários inexistentes, etc)
+- ✅ Segurança e autorização (acesso restrito por usuário, validação de permissões)
 
 ## Sistema de Logs
 
@@ -831,9 +838,16 @@ A documentação completa da API está disponível através do Swagger UI:
 - `GET /api/maintenances/:id` - Buscar manutenção específica
 - `POST /api/maintenances` - Criar registro de manutenção
 - `PUT /api/maintenances/:id` - Atualizar registro de manutenção
-- `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
 - `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
+
+### Anexos de Manutenção (Autenticados)
+- `GET /api/maintenance-attachments/maintenance/:maintenanceId` - Listar anexos de uma manutenção
+- `GET /api/maintenance-attachments/:id` - Buscar anexo específico
+- `POST /api/maintenance-attachments/maintenance/:maintenanceId/upload` - Upload de anexos (máx 5 arquivos)
+- `GET /api/maintenance-attachments/:id/download` - Download de anexo
+- `PUT /api/maintenance-attachments/:id` - Atualizar nome do anexo
+- `DELETE /api/maintenance-attachments/:id` - Excluir anexo
 
 #### Campos de Preferências:
 - **theme_mode**: 'light', 'dark', 'system' (segue o sistema operacional) - Padrão: 'system'
@@ -871,6 +885,29 @@ A documentação completa da API está disponível através do Swagger UI:
 - **notes**: Observações adicionais (string, opcional)
 
 **Nota**: Cada manutenção é vinculada a um veículo específico. Apenas o proprietário do veículo pode criar e gerenciar suas manutenções, exceto admins que podem listar manutenções de qualquer usuário.
+
+#### Campos de Anexos de Manutenção:
+- **maintenance_id**: ID da manutenção (inteiro, obrigatório, deve pertencer ao usuário)
+- **file_name**: Nome original do arquivo (string, 1-255 caracteres)
+- **file_path**: Caminho de armazenamento do arquivo (string, gerado automaticamente)
+- **file_type**: Tipo MIME do arquivo (string, gerado automaticamente)
+- **file_size**: Tamanho do arquivo em bytes (inteiro, gerado automaticamente)
+- **uploaded_at**: Data/hora do upload (timestamp, gerado automaticamente)
+
+**Tipos de arquivo permitidos:**
+- Imagens: JPEG, JPG, PNG, GIF
+- Documentos: PDF, TXT
+- Tamanho máximo: 10MB por arquivo
+- Máximo: 5 arquivos por upload
+
+**Funcionalidades:**
+- Upload múltiplo de arquivos
+- Download seguro com verificação de permissão  
+- Renomeação de arquivos
+- Exclusão com remoção do arquivo físico
+- Listagem por manutenção
+
+**Nota**: Apenas o proprietário do veículo pode fazer upload, visualizar e gerenciar anexos de suas manutenções. Arquivos são armazenados em `uploads/maintenance-attachments/` com nomes únicos gerados automaticamente.
 
 ## Sistema de Autorização (RBAC)
 

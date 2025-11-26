@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS maintenance_attachments (
   -- File details
   file_name VARCHAR(255) NOT NULL,
   file_path VARCHAR(500) NOT NULL,
-  file_type VARCHAR(50) NOT NULL CHECK (file_type IN ('image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/heic')),
+  file_type VARCHAR(50) NOT NULL CHECK (file_type IN ('image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'text/plain', 'image/heic')),
   file_size INTEGER NOT NULL CHECK (file_size > 0),
   
   -- Metadata

@@ -162,6 +162,18 @@ npm run init-db
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
 - `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
 
+### Anexos de Manutenção (Requer autenticação JWT)
+- `GET /api/maintenance-attachments/maintenance/:maintenanceId` - Listar anexos de uma manutenção
+- `GET /api/maintenance-attachments/:id` - Buscar anexo específico
+- `POST /api/maintenance-attachments/maintenance/:maintenanceId/upload` - Upload de anexos (máx 5 arquivos)
+- `GET /api/maintenance-attachments/:id/download` - Download de anexo
+- `PUT /api/maintenance-attachments/:id` - Atualizar nome do anexo
+- `DELETE /api/maintenance-attachments/:id` - Excluir anexo
+
+**Tipos de arquivo permitidos:** JPEG, JPG, PNG, GIF, PDF, TXT  
+**Tamanho máximo:** 10MB por arquivo  
+**Upload múltiplo:** Até 5 arquivos por requisição
+
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
 ```

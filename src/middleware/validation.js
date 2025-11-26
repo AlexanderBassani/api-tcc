@@ -664,6 +664,42 @@ const validateUserIdParam = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para ID de manutenção em parâmetros de rota
+ */
+const validateMaintenanceIdParam = [
+  param('maintenanceId')
+    .isInt({ min: 1 }).withMessage('ID da manutenção inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para ID de anexo em parâmetros de rota
+ */
+const validateAttachmentId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do anexo inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de nome do anexo
+ */
+const validateUpdateAttachment = [
+  body('file_name')
+    .trim()
+    .notEmpty().withMessage('Nome do arquivo é obrigatório')
+    .isLength({ min: 1, max: 255 }).withMessage('Nome do arquivo deve ter entre 1 e 255 caracteres')
+    .matches(/^[^<>:"/\\|?*\x00-\x1f]+$/).withMessage('Nome do arquivo contém caracteres inválidos')
+    .escape(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -687,5 +723,8 @@ module.exports = {
   validateMaintenanceId,
   validateVehicleIdParam,
   validateUserIdParam,
+  validateMaintenanceIdParam,
+  validateAttachmentId,
+  validateUpdateAttachment,
   handleValidationErrors
 };
