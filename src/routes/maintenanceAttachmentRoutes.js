@@ -34,10 +34,20 @@ router.get('/:id',
 );
 
 // POST /api/maintenance-attachments/maintenance/:maintenanceId/upload - Upload de anexos
-router.post('/maintenance/:maintenanceId/upload', 
-  authenticateToken, 
-  validateMaintenanceIdParam, 
-  upload.array('files', 5), // Máximo 5 arquivos
+router.post('/maintenance/:maintenanceId/upload',
+  authenticateToken,
+  validateMaintenanceIdParam,
+  (req, res, next) => {
+    // Processamento do upload via callback do multer
+    upload.array('files', 5)(req, res, (err) => {
+      if (err) {
+        // Propagar erro para o errorHandler global
+        return next(err);
+      }
+      // Se não houver erro, chamar o próximo middleware
+      next();
+    });
+  },
   uploadAttachments
 );
 

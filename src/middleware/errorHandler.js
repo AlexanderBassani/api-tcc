@@ -12,6 +12,44 @@ const errorHandler = (err, req, res, next) => {
     timestamp: new Date().toISOString()
   });
 
+  // Erros do Multer
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        error: 'Arquivo muito grande',
+        message: 'O arquivo excede o tamanho máximo permitido (10MB)',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        error: 'Muitos arquivos',
+        message: 'Máximo de 5 arquivos por upload',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        error: 'Campo de arquivo inválido',
+        message: 'Use o campo "files" para enviar arquivos',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+  }
+
+  // Erro de tipo de arquivo não permitido (do fileFilter do Multer)
+  if (err.message && err.message.includes('Tipo de arquivo não permitido')) {
+    return res.status(400).json({
+      error: 'Tipo de arquivo inválido',
+      message: err.message,
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+
   // Erro de validação do Express
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({
