@@ -19,6 +19,9 @@ const maintenanceAttachmentRoutes = require('./routes/maintenanceAttachmentRoute
 //REMINDERS ROUTES
 const reminderRoutes = require('./routes/reminderRoutes');
 
+//FUEL RECORDS ROUTES
+const fuelRecordRoutes = require('./routes/fuelRecordRoutes');
+
 //SECURITY
 const cors = require('cors');
 const helmet = require('helmet');
@@ -214,6 +217,7 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
 app.use('/api/maintenance-attachments', maintenanceAttachmentRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/fuel-records', fuelRecordRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

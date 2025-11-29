@@ -840,6 +840,138 @@ const validateReminderId = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de registro de abastecimento
+ */
+const validateCreateFuelRecord = [
+  body('vehicle_id')
+    .isInt({ min: 1 }).withMessage('ID do veículo é obrigatório e deve ser um número válido')
+    .toInt(),
+
+  body('date')
+    .notEmpty().withMessage('Data é obrigatória')
+    .isDate().withMessage('Data inválida (use formato YYYY-MM-DD)')
+    .custom((value) => {
+      // Parse date string as local date (YYYY-MM-DD)
+      const [year, month, day] = value.split('-').map(Number);
+      const inputDate = new Date(year, month - 1, day);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (inputDate > today) {
+        throw new Error('Data não pode ser futura');
+      }
+      return true;
+    }),
+
+  body('km')
+    .isInt({ min: 0 }).withMessage('Quilometragem é obrigatória e deve ser um número positivo')
+    .toInt(),
+
+  body('liters')
+    .isFloat({ min: 0.01 }).withMessage('Litros é obrigatório e deve ser maior que zero')
+    .toFloat(),
+
+  body('price_per_liter')
+    .isFloat({ min: 0.01 }).withMessage('Preço por litro é obrigatório e deve ser maior que zero')
+    .toFloat(),
+
+  body('fuel_type')
+    .optional()
+    .trim()
+    .isIn(['gasoline', 'ethanol', 'diesel', 'flex', 'gnv', 'electric'])
+    .withMessage('Tipo de combustível inválido. Use: gasoline, ethanol, diesel, flex, gnv ou electric')
+    .escape(),
+
+  body('is_full_tank')
+    .optional()
+    .isBoolean().withMessage('is_full_tank deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  body('gas_station')
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage('Nome do posto deve ter no máximo 100 caracteres')
+    .escape(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Observações devem ter no máximo 5000 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de registro de abastecimento
+ */
+const validateUpdateFuelRecord = [
+  body('date')
+    .optional()
+    .isDate().withMessage('Data inválida (use formato YYYY-MM-DD)')
+    .custom((value) => {
+      const inputDate = new Date(value);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (inputDate > today) {
+        throw new Error('Data não pode ser futura');
+      }
+      return true;
+    }),
+
+  body('km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem deve ser um número positivo')
+    .toInt(),
+
+  body('liters')
+    .optional()
+    .isFloat({ min: 0.01 }).withMessage('Litros deve ser maior que zero')
+    .toFloat(),
+
+  body('price_per_liter')
+    .optional()
+    .isFloat({ min: 0.01 }).withMessage('Preço por litro deve ser maior que zero')
+    .toFloat(),
+
+  body('fuel_type')
+    .optional()
+    .trim()
+    .isIn(['gasoline', 'ethanol', 'diesel', 'flex', 'gnv', 'electric'])
+    .withMessage('Tipo de combustível inválido. Use: gasoline, ethanol, diesel, flex, gnv ou electric')
+    .escape(),
+
+  body('is_full_tank')
+    .optional()
+    .isBoolean().withMessage('is_full_tank deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  body('gas_station')
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage('Nome do posto deve ter no máximo 100 caracteres')
+    .escape(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Observações devem ter no máximo 5000 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validação de ID do registro de abastecimento em parâmetros de rota
+ */
+const validateFuelRecordId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do registro de abastecimento inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -869,5 +1001,8 @@ module.exports = {
   validateCreateReminder,
   validateUpdateReminder,
   validateReminderId,
+  validateCreateFuelRecord,
+  validateUpdateFuelRecord,
+  validateFuelRecordId,
   handleValidationErrors
 };
