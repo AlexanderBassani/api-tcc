@@ -972,6 +972,142 @@ const validateFuelRecordId = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de prestador de serviço
+ */
+const validateCreateServiceProvider = [
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Nome é obrigatório')
+    .isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres')
+    .escape(),
+
+  body('type')
+    .trim()
+    .notEmpty().withMessage('Tipo é obrigatório')
+    .isIn(['oficina', 'concessionária', 'lava-jato', 'borracharia', 'outros'])
+    .withMessage('Tipo inválido. Use: oficina, concessionária, lava-jato, borracharia ou outros')
+    .escape(),
+
+  body('phone')
+    .optional()
+    .trim()
+    .isLength({ max: 20 }).withMessage('Telefone deve ter no máximo 20 caracteres')
+    .matches(/^[0-9\s\-\+\(\)]+$/).withMessage('Telefone deve conter apenas números e caracteres válidos (espaços, -, +, (), )')
+    .escape(),
+
+  body('email')
+    .optional()
+    .trim()
+    .isEmail().withMessage('Email inválido')
+    .normalizeEmail()
+    .isLength({ max: 100 }).withMessage('Email deve ter no máximo 100 caracteres'),
+
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Endereço deve ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('rating')
+    .optional()
+    .isFloat({ min: 0.0, max: 5.0 }).withMessage('Avaliação deve estar entre 0.0 e 5.0')
+    .toFloat(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Observações devem ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('is_favorite')
+    .optional()
+    .isBoolean().withMessage('is_favorite deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de prestador de serviço
+ */
+const validateUpdateServiceProvider = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres')
+    .escape(),
+
+  body('type')
+    .optional()
+    .trim()
+    .isIn(['oficina', 'concessionária', 'lava-jato', 'borracharia', 'outros'])
+    .withMessage('Tipo inválido. Use: oficina, concessionária, lava-jato, borracharia ou outros')
+    .escape(),
+
+  body('phone')
+    .optional()
+    .trim()
+    .isLength({ max: 20 }).withMessage('Telefone deve ter no máximo 20 caracteres')
+    .matches(/^[0-9\s\-\+\(\)]+$/).withMessage('Telefone deve conter apenas números e caracteres válidos (espaços, -, +, (), )')
+    .escape(),
+
+  body('email')
+    .optional()
+    .trim()
+    .isEmail().withMessage('Email inválido')
+    .normalizeEmail()
+    .isLength({ max: 100 }).withMessage('Email deve ter no máximo 100 caracteres'),
+
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Endereço deve ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('rating')
+    .optional()
+    .isFloat({ min: 0.0, max: 5.0 }).withMessage('Avaliação deve estar entre 0.0 e 5.0')
+    .toFloat(),
+
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Observações devem ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('is_favorite')
+    .optional()
+    .isBoolean().withMessage('is_favorite deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validação de ID do prestador de serviço em parâmetros de rota
+ */
+const validateServiceProviderId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do prestador de serviço inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validação de tipo de prestador em parâmetros de rota
+ */
+const validateProviderType = [
+  param('type')
+    .trim()
+    .isIn(['oficina', 'concessionária', 'lava-jato', 'borracharia', 'outros'])
+    .withMessage('Tipo inválido. Use: oficina, concessionária, lava-jato, borracharia ou outros')
+    .escape(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1004,5 +1140,9 @@ module.exports = {
   validateCreateFuelRecord,
   validateUpdateFuelRecord,
   validateFuelRecordId,
+  validateCreateServiceProvider,
+  validateUpdateServiceProvider,
+  validateServiceProviderId,
+  validateProviderType,
   handleValidationErrors
 };
