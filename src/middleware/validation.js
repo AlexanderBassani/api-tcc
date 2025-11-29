@@ -700,6 +700,146 @@ const validateUpdateAttachment = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de lembrete
+ */
+const validateCreateReminder = [
+  body('vehicle_id')
+    .isInt({ min: 1 }).withMessage('ID do veículo é obrigatório e deve ser um número válido')
+    .toInt(),
+
+  body('type')
+    .trim()
+    .notEmpty().withMessage('Tipo de lembrete é obrigatório')
+    .isIn(['maintenance', 'insurance', 'license', 'inspection', 'tax', 'custom'])
+    .withMessage('Tipo de lembrete inválido. Use: maintenance, insurance, license, inspection, tax ou custom')
+    .escape(),
+
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Título é obrigatório')
+    .isLength({ min: 3, max: 200 }).withMessage('Título deve ter entre 3 e 200 caracteres')
+    .escape(),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Descrição deve ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('remind_at_km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem do lembrete deve ser um número positivo')
+    .toInt(),
+
+  body('remind_at_date')
+    .optional()
+    .isDate().withMessage('Data do lembrete inválida (use formato YYYY-MM-DD)')
+    .custom((value) => {
+      const inputDate = new Date(value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (inputDate < today) {
+        throw new Error('Data do lembrete deve ser hoje ou uma data futura');
+      }
+      return true;
+    }),
+
+  body('is_recurring')
+    .optional()
+    .isBoolean().withMessage('is_recurring deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  body('recurrence_km')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Recorrência em km deve ser um número positivo')
+    .toInt(),
+
+  body('recurrence_months')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Recorrência em meses deve ser um número positivo')
+    .toInt(),
+
+  // Validação customizada: pelo menos um gatilho deve ser fornecido
+  body().custom((value) => {
+    if (!value.remind_at_km && !value.remind_at_date) {
+      throw new Error('Pelo menos um gatilho (remind_at_km ou remind_at_date) deve ser fornecido');
+    }
+    return true;
+  }),
+
+  // Validação customizada: lembretes recorrentes precisam de intervalo
+  body().custom((value) => {
+    if (value.is_recurring && !value.recurrence_km && !value.recurrence_months) {
+      throw new Error('Lembretes recorrentes precisam de intervalo de recorrência (recurrence_km ou recurrence_months)');
+    }
+    return true;
+  }),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de lembrete
+ */
+const validateUpdateReminder = [
+  body('type')
+    .optional()
+    .trim()
+    .isIn(['maintenance', 'insurance', 'license', 'inspection', 'tax', 'custom'])
+    .withMessage('Tipo de lembrete inválido. Use: maintenance, insurance, license, inspection, tax ou custom')
+    .escape(),
+
+  body('title')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 200 }).withMessage('Título deve ter entre 3 e 200 caracteres')
+    .escape(),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 5000 }).withMessage('Descrição deve ter no máximo 5000 caracteres')
+    .escape(),
+
+  body('remind_at_km')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Quilometragem do lembrete deve ser um número positivo')
+    .toInt(),
+
+  body('remind_at_date')
+    .optional()
+    .isDate().withMessage('Data do lembrete inválida (use formato YYYY-MM-DD)'),
+
+  body('is_recurring')
+    .optional()
+    .isBoolean().withMessage('is_recurring deve ser verdadeiro ou falso')
+    .toBoolean(),
+
+  body('recurrence_km')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Recorrência em km deve ser um número positivo')
+    .toInt(),
+
+  body('recurrence_months')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Recorrência em meses deve ser um número positivo')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validação de ID do lembrete em parâmetros de rota
+ */
+const validateReminderId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do lembrete inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -726,5 +866,8 @@ module.exports = {
   validateMaintenanceIdParam,
   validateAttachmentId,
   validateUpdateAttachment,
+  validateCreateReminder,
+  validateUpdateReminder,
+  validateReminderId,
   handleValidationErrors
 };
