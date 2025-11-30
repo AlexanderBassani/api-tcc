@@ -15,6 +15,7 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 //MAINTENANCES ROUTES
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const maintenanceAttachmentRoutes = require('./routes/maintenanceAttachmentRoutes');
+const maintenanceTypeRoutes = require('./routes/maintenanceTypeRoutes');
 
 //REMINDERS ROUTES
 const reminderRoutes = require('./routes/reminderRoutes');
@@ -219,6 +220,7 @@ app.use('/api/preferences', preferencesRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
 app.use('/api/maintenance-attachments', maintenanceAttachmentRoutes);
+app.use('/api/maintenance-types', maintenanceTypeRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/fuel-records', fuelRecordRoutes);
 app.use('/api/service-providers', serviceProviderRoutes);

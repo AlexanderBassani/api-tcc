@@ -63,6 +63,10 @@ npm run docker:migrate:status    # Status das migrations via Docker
     - `vehicleController.js` - CRUD de veículos
     - `maintenanceController.js` - CRUD de manutenções
     - `maintenanceAttachmentController.js` - Upload e gestão de anexos de manutenção
+    - `maintenanceTypeController.js` - CRUD de tipos de manutenção (admin only)
+    - `serviceProviderController.js` - CRUD de prestadores de serviço
+    - `fuelRecordController.js` - CRUD de registros de abastecimento com estatísticas
+    - `reminderController.js` - Sistema completo de lembretes e alertas
   - `routes/` - Definição das rotas
     - `userRoutes.js` - Rotas de usuários
     - `passwordReset.js` - Rotas de reset de senha
@@ -70,6 +74,10 @@ npm run docker:migrate:status    # Status das migrations via Docker
     - `vehicleRoutes.js` - Rotas de veículos
     - `maintenanceRoutes.js` - Rotas de manutenções
     - `maintenanceAttachmentRoutes.js` - Rotas de anexos de manutenção
+    - `maintenanceTypeRoutes.js` - Rotas de tipos de manutenção
+    - `serviceProviderRoutes.js` - Rotas de prestadores de serviço
+    - `fuelRecordRoutes.js` - Rotas de registros de abastecimento
+    - `reminderRoutes.js` - Rotas de lembretes
   - `middleware/` - Middlewares
     - `auth.js` - Autenticação JWT e autorização RBAC
     - `errorHandler.js` - Tratamento de erros
@@ -909,6 +917,101 @@ A documentação completa da API está disponível através do Swagger UI:
 
 **Nota**: Apenas o proprietário do veículo pode fazer upload, visualizar e gerenciar anexos de suas manutenções. Arquivos são armazenados em `uploads/maintenance-attachments/` com nomes únicos gerados automaticamente.
 
+### Tipos de Manutenção (Autenticados)
+- `GET /api/maintenance-types` - Listar todos os tipos de manutenção (com filtros: has_km_interval, has_month_interval)
+- `GET /api/maintenance-types/:id` - Buscar tipo específico
+- `POST /api/maintenance-types` - Criar novo tipo **(admin only)**
+- `PUT /api/maintenance-types/:id` - Atualizar tipo **(admin only)**
+- `DELETE /api/maintenance-types/:id` - Excluir tipo **(admin only)**
+
+#### Campos de Tipos de Manutenção:
+- **name**: Nome técnico do tipo (string única, obrigatório)
+- **display_name**: Nome de exibição (string, obrigatório)
+- **typical_interval_km**: Intervalo típico em quilômetros (inteiro >= 0, opcional)
+- **typical_interval_months**: Intervalo típico em meses (inteiro >= 0, opcional)
+- **icon**: Ícone do tipo (string, opcional)
+
+**Nota**: Os tipos são globais e podem ser criados apenas por admins. Usuários regulares podem apenas listar e visualizar.
+
+### Prestadores de Serviço (Autenticados)
+- `GET /api/service-providers` - Listar prestadores (com filtros: type, is_favorite, min_rating)
+- `GET /api/service-providers/favorites` - Listar apenas favoritos
+- `GET /api/service-providers/type/:type` - Listar por tipo específico
+- `GET /api/service-providers/:id` - Buscar prestador específico
+- `POST /api/service-providers` - Criar novo prestador
+- `PUT /api/service-providers/:id` - Atualizar prestador
+- `DELETE /api/service-providers/:id` - Excluir prestador
+
+#### Campos de Prestadores de Serviço:
+- **name**: Nome do prestador (string, obrigatório)
+- **type**: Tipo do prestador - 'mechanic', 'bodyshop', 'dealer', 'specialist', 'other' (string, obrigatório)
+- **phone**: Telefone (string, opcional)
+- **email**: Email (string, opcional)
+- **address**: Endereço completo (string, opcional)
+- **rating**: Avaliação de 0.0 a 5.0 (decimal, padrão: 0.0)
+- **notes**: Observações (string, opcional)
+- **is_favorite**: Marcar como favorito (boolean, padrão: false)
+
+**Nota**: Cada prestador pertence ao usuário que o criou. Permite gerenciar oficinas, mecânicos e outros prestadores de serviço.
+
+### Registros de Abastecimento (Autenticados)
+- `GET /api/fuel-records` - Listar registros (com filtros: vehicle_id, fuel_type, start_date, end_date)
+- `GET /api/fuel-records/vehicle/:vehicleId` - Listar registros de um veículo
+- `GET /api/fuel-records/vehicle/:vehicleId/statistics` - Estatísticas de consumo do veículo
+- `GET /api/fuel-records/:id` - Buscar registro específico
+- `POST /api/fuel-records` - Criar novo registro
+- `PUT /api/fuel-records/:id` - Atualizar registro
+- `DELETE /api/fuel-records/:id` - Excluir registro
+
+#### Campos de Registros de Abastecimento:
+- **vehicle_id**: ID do veículo (inteiro, obrigatório)
+- **date**: Data do abastecimento (date, obrigatório)
+- **km**: Quilometragem no momento do abastecimento (inteiro >= 0, obrigatório)
+- **liters**: Litros abastecidos (decimal > 0, obrigatório)
+- **price_per_liter**: Preço por litro (decimal > 0, obrigatório)
+- **total_cost**: Custo total (calculado automaticamente: liters * price_per_liter)
+- **fuel_type**: Tipo de combustível - 'gasoline', 'ethanol', 'diesel', 'gnv', 'flex' (string, padrão: 'gasoline')
+- **is_full_tank**: Tanque cheio (boolean, padrão: false) - usado para cálculo de consumo
+- **gas_station**: Nome do posto (string, opcional)
+- **notes**: Observações (string, opcional)
+
+**Funcionalidades:**
+- Cálculo automático de consumo médio (km/l) com tanques cheios consecutivos
+- Estatísticas por tipo de combustível
+- Atualização automática da quilometragem do veículo
+- Validação de sequência de quilometragem
+
+### Lembretes (Autenticados)
+- `GET /api/reminders` - Listar lembretes (com filtros: status, type, vehicle_id)
+- `GET /api/reminders/pending` - Listar lembretes pendentes (próximos de vencer)
+- `GET /api/reminders/vehicle/:vehicleId` - Listar lembretes de um veículo
+- `GET /api/reminders/:id` - Buscar lembrete específico
+- `POST /api/reminders` - Criar novo lembrete
+- `PUT /api/reminders/:id` - Atualizar lembrete
+- `PATCH /api/reminders/:id/complete` - Marcar como concluído
+- `PATCH /api/reminders/:id/dismiss` - Marcar como descartado
+- `DELETE /api/reminders/:id` - Excluir lembrete
+
+#### Campos de Lembretes:
+- **vehicle_id**: ID do veículo (inteiro, obrigatório)
+- **type**: Tipo do lembrete - 'maintenance', 'inspection', 'insurance', 'licensing', 'tax', 'other' (string, obrigatório)
+- **title**: Título do lembrete (string, obrigatório)
+- **description**: Descrição detalhada (string, opcional)
+- **remind_at_km**: Lembrar ao atingir esta quilometragem (inteiro >= 0, opcional)
+- **remind_at_date**: Lembrar nesta data (date, opcional)
+- **status**: Status - 'pending', 'completed', 'dismissed' (string, padrão: 'pending')
+- **is_recurring**: Lembrete recorrente (boolean, padrão: false)
+- **recurrence_km**: Recorrência em quilômetros (inteiro >= 0, opcional)
+- **recurrence_months**: Recorrência em meses (inteiro >= 0, opcional)
+- **completed_at**: Data de conclusão (timestamp, automático)
+
+**Funcionalidades:**
+- Lembretes por quilometragem OU data (pelo menos um obrigatório)
+- Sistema de status (pending, completed, dismissed)
+- Lembretes recorrentes automáticos
+- Endpoint especial para listar pendentes (próximos 30 dias ou 500km)
+- Cálculos automáticos de dias/km até vencimento
+
 ## Sistema de Autorização (RBAC)
 
 O projeto implementa controle de acesso baseado em roles (RBAC - Role-Based Access Control):
@@ -934,6 +1037,9 @@ router.post('/posts', authenticateToken, authorizeRoles('admin', 'moderator'), c
 - Excluir usuário (DELETE /api/users/:id)
 - Listar veículos de usuário específico (GET /api/vehicles/user/:userId)
 - Listar manutenções de usuário específico (GET /api/maintenances/user/:userId)
+- Criar tipo de manutenção (POST /api/maintenance-types)
+- Atualizar tipo de manutenção (PUT /api/maintenance-types/:id)
+- Excluir tipo de manutenção (DELETE /api/maintenance-types/:id)
 
 ### Mensagens de Erro
 O middleware retorna mensagens detalhadas em caso de acesso negado:

@@ -522,7 +522,7 @@ const validateCreateMaintenance = [
     .trim()
     .notEmpty().withMessage('Tipo de manutenção é obrigatório')
     .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
-    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
 
   body('description')
@@ -583,7 +583,7 @@ const validateUpdateMaintenance = [
     .trim()
     .notEmpty().withMessage('Tipo de manutenção é obrigatório')
     .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
-    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
+    .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
 
   body('description')
@@ -1108,6 +1108,89 @@ const validateProviderType = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para criação de tipo de manutenção
+ */
+const validateCreateMaintenanceType = [
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Nome interno é obrigatório')
+    .isLength({ min: 2, max: 50 }).withMessage('Nome interno deve ter entre 2 e 50 caracteres')
+    .matches(/^[a-z0-9_]+$/).withMessage('Nome interno deve conter apenas letras minúsculas, números e underscore')
+    .escape(),
+
+  body('display_name')
+    .trim()
+    .notEmpty().withMessage('Nome de exibição é obrigatório')
+    .isLength({ min: 2, max: 100 }).withMessage('Nome de exibição deve ter entre 2 e 100 caracteres')
+    .escape(),
+
+  body('typical_interval_km')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Intervalo em km deve ser um número positivo')
+    .toInt(),
+
+  body('typical_interval_months')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Intervalo em meses deve ser um número positivo')
+    .toInt(),
+
+  body('icon')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Ícone deve ter no máximo 50 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para atualização de tipo de manutenção
+ */
+const validateUpdateMaintenanceType = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 }).withMessage('Nome interno deve ter entre 2 e 50 caracteres')
+    .matches(/^[a-z0-9_]+$/).withMessage('Nome interno deve conter apenas letras minúsculas, números e underscore')
+    .escape(),
+
+  body('display_name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 }).withMessage('Nome de exibição deve ter entre 2 e 100 caracteres')
+    .escape(),
+
+  body('typical_interval_km')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Intervalo em km deve ser um número positivo')
+    .toInt(),
+
+  body('typical_interval_months')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Intervalo em meses deve ser um número positivo')
+    .toInt(),
+
+  body('icon')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Ícone deve ter no máximo 50 caracteres')
+    .escape(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validação de ID do tipo de manutenção em parâmetros de rota
+ */
+const validateMaintenanceTypeId = [
+  param('id')
+    .isInt({ min: 1 }).withMessage('ID do tipo de manutenção inválido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1144,5 +1227,8 @@ module.exports = {
   validateUpdateServiceProvider,
   validateServiceProviderId,
   validateProviderType,
+  validateCreateMaintenanceType,
+  validateUpdateMaintenanceType,
+  validateMaintenanceTypeId,
   handleValidationErrors
 };
