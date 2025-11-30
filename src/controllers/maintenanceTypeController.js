@@ -1,48 +1,60 @@
-const pool = require('../config/database');
+const { AppDataSource } = require('../config/typeorm');
 const logger = require('../config/logger');
 
-// Listar todos os tipos de manutenção
+// Repository cache
+let maintenanceTypeRepository = null;
+let maintenanceRepository = null;
+
+const getRepositories = () => {
+  if (!maintenanceTypeRepository) {
+    maintenanceTypeRepository = AppDataSource.getRepository('MaintenanceType');
+    maintenanceRepository = AppDataSource.getRepository('Maintenance');
+  }
+  return { maintenanceTypeRepository, maintenanceRepository };
+};
+
+/**
+ * GET /api/maintenance-types
+ * Listar todos os tipos de manutenção
+ */
 const getMaintenanceTypes = async (req, res) => {
   try {
     const { has_km_interval, has_month_interval } = req.query;
+    const { maintenanceTypeRepository } = getRepositories();
 
-    let query = 'SELECT * FROM maintenance_types WHERE 1=1';
-    const params = [];
-    let paramCount = 0;
+    const queryBuilder = maintenanceTypeRepository.createQueryBuilder('mt');
 
     // Filtros opcionais
     if (has_km_interval !== undefined) {
-      paramCount++;
       if (has_km_interval === 'true') {
-        query += ` AND typical_interval_km IS NOT NULL`;
+        queryBuilder.andWhere('mt.typical_interval_km IS NOT NULL');
       } else {
-        query += ` AND typical_interval_km IS NULL`;
+        queryBuilder.andWhere('mt.typical_interval_km IS NULL');
       }
     }
 
     if (has_month_interval !== undefined) {
-      paramCount++;
       if (has_month_interval === 'true') {
-        query += ` AND typical_interval_months IS NOT NULL`;
+        queryBuilder.andWhere('mt.typical_interval_months IS NOT NULL');
       } else {
-        query += ` AND typical_interval_months IS NULL`;
+        queryBuilder.andWhere('mt.typical_interval_months IS NULL');
       }
     }
 
-    query += ' ORDER BY display_name ASC';
+    queryBuilder.orderBy('mt.display_name', 'ASC');
 
-    const result = await pool.query(query, params);
+    const types = await queryBuilder.getMany();
 
     logger.info('Maintenance types retrieved', {
       userId: req.user.id,
-      count: result.rows.length,
+      count: types.length,
       filters: { has_km_interval, has_month_interval }
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: types,
+      count: types.length
     });
   } catch (error) {
     logger.error('Error retrieving maintenance types', {
@@ -58,17 +70,20 @@ const getMaintenanceTypes = async (req, res) => {
   }
 };
 
-// Buscar tipo de manutenção específico
+/**
+ * GET /api/maintenance-types/:id
+ * Buscar tipo de manutenção específico
+ */
 const getMaintenanceTypeById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { maintenanceTypeRepository } = getRepositories();
 
-    const result = await pool.query(
-      'SELECT * FROM maintenance_types WHERE id = $1',
-      [id]
-    );
+    const type = await maintenanceTypeRepository.findOne({
+      where: { id: parseInt(id) }
+    });
 
-    if (result.rows.length === 0) {
+    if (!type) {
       return res.status(404).json({
         error: 'Tipo de manutenção não encontrado',
         message: 'O tipo de manutenção especificado não existe'
@@ -82,7 +97,7 @@ const getMaintenanceTypeById = async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows[0]
+      data: type
     });
   } catch (error) {
     logger.error('Error retrieving maintenance type by ID', {
@@ -99,7 +114,10 @@ const getMaintenanceTypeById = async (req, res) => {
   }
 };
 
-// Criar novo tipo de manutenção (apenas admin)
+/**
+ * POST /api/maintenance-types
+ * Criar novo tipo de manutenção (apenas admin)
+ */
 const createMaintenanceType = async (req, res) => {
   try {
     const {
@@ -110,22 +128,20 @@ const createMaintenanceType = async (req, res) => {
       icon
     } = req.body;
 
-    const result = await pool.query(
-      `INSERT INTO maintenance_types (
-        name, display_name, typical_interval_km, typical_interval_months, icon
-      ) VALUES ($1, $2, $3, $4, $5)
-      RETURNING *`,
-      [
-        name,
-        display_name,
-        typical_interval_km || null,
-        typical_interval_months || null,
-        icon || null
-      ]
-    );
+    const { maintenanceTypeRepository } = getRepositories();
+
+    const newType = maintenanceTypeRepository.create({
+      name,
+      display_name,
+      typical_interval_km: typical_interval_km || null,
+      typical_interval_months: typical_interval_months || null,
+      icon: icon || null
+    });
+
+    const savedType = await maintenanceTypeRepository.save(newType);
 
     logger.info('Maintenance type created', {
-      maintenanceTypeId: result.rows[0].id,
+      maintenanceTypeId: savedType.id,
       userId: req.user.id,
       name
     });
@@ -133,7 +149,7 @@ const createMaintenanceType = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Tipo de manutenção criado com sucesso',
-      data: result.rows[0]
+      data: savedType
     });
   } catch (error) {
     logger.error('Error creating maintenance type', {
@@ -164,7 +180,10 @@ const createMaintenanceType = async (req, res) => {
   }
 };
 
-// Atualizar tipo de manutenção (apenas admin)
+/**
+ * PUT /api/maintenance-types/:id
+ * Atualizar tipo de manutenção (apenas admin)
+ */
 const updateMaintenanceType = async (req, res) => {
   try {
     const { id } = req.params;
@@ -176,31 +195,35 @@ const updateMaintenanceType = async (req, res) => {
       icon
     } = req.body;
 
-    // Verificar se o tipo existe
-    const typeCheck = await pool.query(
-      'SELECT id FROM maintenance_types WHERE id = $1',
-      [id]
-    );
+    const { maintenanceTypeRepository } = getRepositories();
 
-    if (typeCheck.rows.length === 0) {
+    // Verificar se o tipo existe
+    const type = await maintenanceTypeRepository.findOne({
+      where: { id: parseInt(id) }
+    });
+
+    if (!type) {
       return res.status(404).json({
         error: 'Tipo de manutenção não encontrado',
         message: 'O tipo de manutenção especificado não existe'
       });
     }
 
+    // Preparar dados para atualização
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (display_name !== undefined) updateData.display_name = display_name;
+    if (typical_interval_km !== undefined) updateData.typical_interval_km = typical_interval_km;
+    if (typical_interval_months !== undefined) updateData.typical_interval_months = typical_interval_months;
+    if (icon !== undefined) updateData.icon = icon;
+
     // Atualizar tipo
-    const result = await pool.query(
-      `UPDATE maintenance_types SET
-        name = COALESCE($1, name),
-        display_name = COALESCE($2, display_name),
-        typical_interval_km = COALESCE($3, typical_interval_km),
-        typical_interval_months = COALESCE($4, typical_interval_months),
-        icon = COALESCE($5, icon)
-       WHERE id = $6
-       RETURNING *`,
-      [name, display_name, typical_interval_km, typical_interval_months, icon, id]
-    );
+    await maintenanceTypeRepository.update(parseInt(id), updateData);
+
+    // Buscar tipo atualizado
+    const updatedType = await maintenanceTypeRepository.findOne({
+      where: { id: parseInt(id) }
+    });
 
     logger.info('Maintenance type updated', {
       maintenanceTypeId: id,
@@ -210,7 +233,7 @@ const updateMaintenanceType = async (req, res) => {
     res.json({
       success: true,
       message: 'Tipo de manutenção atualizado com sucesso',
-      data: result.rows[0]
+      data: updatedType
     });
   } catch (error) {
     logger.error('Error updating maintenance type', {
@@ -242,18 +265,22 @@ const updateMaintenanceType = async (req, res) => {
   }
 };
 
-// Excluir tipo de manutenção (apenas admin)
+/**
+ * DELETE /api/maintenance-types/:id
+ * Excluir tipo de manutenção (apenas admin)
+ */
 const deleteMaintenanceType = async (req, res) => {
   try {
     const { id } = req.params;
+    const { maintenanceTypeRepository, maintenanceRepository } = getRepositories();
 
     // Verificar se o tipo existe
-    const typeCheck = await pool.query(
-      'SELECT id, name FROM maintenance_types WHERE id = $1',
-      [id]
-    );
+    const type = await maintenanceTypeRepository.findOne({
+      where: { id: parseInt(id) },
+      select: ['id', 'name']
+    });
 
-    if (typeCheck.rows.length === 0) {
+    if (!type) {
       return res.status(404).json({
         error: 'Tipo de manutenção não encontrado',
         message: 'O tipo de manutenção especificado não existe'
@@ -261,25 +288,23 @@ const deleteMaintenanceType = async (req, res) => {
     }
 
     // Verificar se existem manutenções usando este tipo (por nome)
-    const typeName = typeCheck.rows[0].name;
-    const usageCheck = await pool.query(
-      'SELECT COUNT(*) as count FROM maintenances WHERE type = $1',
-      [typeName]
-    );
+    const usageCount = await maintenanceRepository.count({
+      where: { type: type.name }
+    });
 
-    if (parseInt(usageCheck.rows[0].count) > 0) {
+    if (usageCount > 0) {
       return res.status(400).json({
         error: 'Tipo em uso',
         message: 'Não é possível excluir este tipo pois existem manutenções cadastradas com ele'
       });
     }
 
-    await pool.query('DELETE FROM maintenance_types WHERE id = $1', [id]);
+    await maintenanceTypeRepository.delete(parseInt(id));
 
     logger.info('Maintenance type deleted', {
       maintenanceTypeId: id,
       userId: req.user.id,
-      name: typeCheck.rows[0].name
+      name: type.name
     });
 
     res.json({

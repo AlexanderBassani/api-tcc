@@ -1,7 +1,7 @@
 module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
-  testPathIgnorePatterns: ['/node_modules/', '/__tests__/helpers/', '/__tests__/setup.js'],
+  testPathIgnorePatterns: ['/node_modules/', '/__tests__/helpers/', '/__tests__/setup.js', '/__tests__/globalSetup.js'],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js'
@@ -9,13 +9,9 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFiles: ['<rootDir>/__tests__/setup.js'],
-  testEnvironment: 'node',
   setupFilesAfterEnv: [],
-  globalSetup: undefined,
+  globalSetup: '<rootDir>/__tests__/globalSetup.js',
   globalTeardown: undefined,
-  // Force NODE_ENV to be test
-  testEnvironment: 'node',
-  setupFiles: ['<rootDir>/__tests__/setup.js'],
   forceExit: true,
   testTimeout: 30000
 };

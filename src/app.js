@@ -42,7 +42,25 @@ const logger = require('./config/logger');
 // ENV
 require('dotenv').config();
 
+// Initialize TypeORM
+const { initializeDatabase } = require('./config/typeorm');
+
+// Create initialization promise
+const typeormReady = (async () => {
+  try {
+    await initializeDatabase();
+    console.log('✅ TypeORM initialized in app.js');
+    return true;
+  } catch (error) {
+    console.error('❌ Error initializing TypeORM in app.js:', error.message);
+    return false;
+  }
+})();
+
 const app = express();
+
+// Export typeormReady promise for tests
+app.typeormReady = typeormReady;
 
 // Configuração de segurança com Helmet
 app.use(helmet({
