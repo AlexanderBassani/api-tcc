@@ -1,7 +1,20 @@
-const pool = require('../config/database');
+const { AppDataSource } = require('../config/typeorm');
 const logger = require('../config/logger');
 
-// Criar novo prestador de serviço
+// Repository cache
+let serviceProviderRepository = null;
+
+const getRepositories = () => {
+  if (!serviceProviderRepository) {
+    serviceProviderRepository = AppDataSource.getRepository('ServiceProvider');
+  }
+  return { serviceProviderRepository };
+};
+
+/**
+ * POST /api/service-providers
+ * Criar novo prestador de serviço
+ */
 const createServiceProvider = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -16,26 +29,24 @@ const createServiceProvider = async (req, res) => {
       is_favorite
     } = req.body;
 
-    const result = await pool.query(
-      `INSERT INTO service_providers (
-        user_id, name, type, phone, email, address, rating, notes, is_favorite
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *`,
-      [
-        userId,
-        name,
-        type,
-        phone || null,
-        email || null,
-        address || null,
-        rating || 0.0,
-        notes || null,
-        is_favorite || false
-      ]
-    );
+    const { serviceProviderRepository } = getRepositories();
+
+    const newProvider = serviceProviderRepository.create({
+      user_id: userId,
+      name,
+      type,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      rating: rating || 0.0,
+      notes: notes || null,
+      is_favorite: is_favorite || false
+    });
+
+    const savedProvider = await serviceProviderRepository.save(newProvider);
 
     logger.info('Service provider created', {
-      serviceProviderId: result.rows[0].id,
+      serviceProviderId: savedProvider.id,
       userId,
       name
     });
@@ -43,7 +54,7 @@ const createServiceProvider = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Prestador de serviço criado com sucesso',
-      data: result.rows[0]
+      data: savedProvider
     });
   } catch (error) {
     logger.error('Error creating service provider', {
@@ -67,49 +78,51 @@ const createServiceProvider = async (req, res) => {
   }
 };
 
-// Listar prestadores de serviço do usuário
+/**
+ * GET /api/service-providers
+ * Listar prestadores de serviço do usuário
+ */
 const getServiceProviders = async (req, res) => {
   try {
     const userId = req.user.id;
     const { type, is_favorite, min_rating } = req.query;
 
-    let query = 'SELECT * FROM service_providers WHERE user_id = $1';
-    const params = [userId];
-    let paramCount = 1;
+    const { serviceProviderRepository } = getRepositories();
+
+    const queryBuilder = serviceProviderRepository
+      .createQueryBuilder('sp')
+      .where('sp.user_id = :userId', { userId });
 
     // Filtros opcionais
     if (type) {
-      paramCount++;
-      query += ` AND type = $${paramCount}`;
-      params.push(type);
+      queryBuilder.andWhere('sp.type = :type', { type });
     }
 
     if (is_favorite !== undefined) {
-      paramCount++;
-      query += ` AND is_favorite = $${paramCount}`;
-      params.push(is_favorite === 'true');
+      queryBuilder.andWhere('sp.is_favorite = :isFavorite', { isFavorite: is_favorite === 'true' });
     }
 
     if (min_rating) {
-      paramCount++;
-      query += ` AND rating >= $${paramCount}`;
-      params.push(parseFloat(min_rating));
+      queryBuilder.andWhere('sp.rating >= :minRating', { minRating: parseFloat(min_rating) });
     }
 
-    query += ' ORDER BY is_favorite DESC, rating DESC, name ASC';
+    queryBuilder
+      .orderBy('sp.is_favorite', 'DESC')
+      .addOrderBy('sp.rating', 'DESC')
+      .addOrderBy('sp.name', 'ASC');
 
-    const result = await pool.query(query, params);
+    const providers = await queryBuilder.getMany();
 
     logger.info('Service providers retrieved', {
       userId,
-      count: result.rows.length,
+      count: providers.length,
       filters: { type, is_favorite, min_rating }
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: providers,
+      count: providers.length
     });
   } catch (error) {
     logger.error('Error retrieving service providers', {
@@ -125,18 +138,25 @@ const getServiceProviders = async (req, res) => {
   }
 };
 
-// Buscar prestador de serviço específico
+/**
+ * GET /api/service-providers/:id
+ * Buscar prestador de serviço específico
+ */
 const getServiceProviderById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const result = await pool.query(
-      'SELECT * FROM service_providers WHERE id = $1 AND user_id = $2',
-      [id, userId]
-    );
+    const { serviceProviderRepository } = getRepositories();
 
-    if (result.rows.length === 0) {
+    const provider = await serviceProviderRepository.findOne({
+      where: {
+        id: parseInt(id),
+        user_id: userId
+      }
+    });
+
+    if (!provider) {
       return res.status(404).json({
         error: 'Prestador de serviço não encontrado',
         message: 'Prestador de serviço não existe ou não pertence ao usuário'
@@ -150,7 +170,7 @@ const getServiceProviderById = async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows[0]
+      data: provider
     });
   } catch (error) {
     logger.error('Error retrieving service provider by ID', {
@@ -167,7 +187,10 @@ const getServiceProviderById = async (req, res) => {
   }
 };
 
-// Atualizar prestador de serviço
+/**
+ * PUT /api/service-providers/:id
+ * Atualizar prestador de serviço
+ */
 const updateServiceProvider = async (req, res) => {
   try {
     const { id } = req.params;
@@ -183,35 +206,42 @@ const updateServiceProvider = async (req, res) => {
       is_favorite
     } = req.body;
 
-    // Verificar se o prestador pertence ao usuário
-    const providerCheck = await pool.query(
-      'SELECT id FROM service_providers WHERE id = $1 AND user_id = $2',
-      [id, userId]
-    );
+    const { serviceProviderRepository } = getRepositories();
 
-    if (providerCheck.rows.length === 0) {
+    // Verificar se o prestador pertence ao usuário
+    const provider = await serviceProviderRepository.findOne({
+      where: {
+        id: parseInt(id),
+        user_id: userId
+      },
+      select: ['id']
+    });
+
+    if (!provider) {
       return res.status(404).json({
         error: 'Prestador de serviço não encontrado',
         message: 'Prestador de serviço não existe ou não pertence ao usuário'
       });
     }
 
+    // Preparar dados para atualização
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (type !== undefined) updateData.type = type;
+    if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+    if (address !== undefined) updateData.address = address;
+    if (rating !== undefined) updateData.rating = rating;
+    if (notes !== undefined) updateData.notes = notes;
+    if (is_favorite !== undefined) updateData.is_favorite = is_favorite;
+
     // Atualizar prestador
-    const result = await pool.query(
-      `UPDATE service_providers SET
-        name = COALESCE($1, name),
-        type = COALESCE($2, type),
-        phone = COALESCE($3, phone),
-        email = COALESCE($4, email),
-        address = COALESCE($5, address),
-        rating = COALESCE($6, rating),
-        notes = COALESCE($7, notes),
-        is_favorite = COALESCE($8, is_favorite),
-        updated_at = CURRENT_TIMESTAMP
-       WHERE id = $9
-       RETURNING *`,
-      [name, type, phone, email, address, rating, notes, is_favorite, id]
-    );
+    await serviceProviderRepository.update(parseInt(id), updateData);
+
+    // Buscar prestador atualizado
+    const updatedProvider = await serviceProviderRepository.findOne({
+      where: { id: parseInt(id) }
+    });
 
     logger.info('Service provider updated', {
       serviceProviderId: id,
@@ -221,7 +251,7 @@ const updateServiceProvider = async (req, res) => {
     res.json({
       success: true,
       message: 'Prestador de serviço atualizado com sucesso',
-      data: result.rows[0]
+      data: updatedProvider
     });
   } catch (error) {
     logger.error('Error updating service provider', {
@@ -246,31 +276,39 @@ const updateServiceProvider = async (req, res) => {
   }
 };
 
-// Excluir prestador de serviço
+/**
+ * DELETE /api/service-providers/:id
+ * Excluir prestador de serviço
+ */
 const deleteServiceProvider = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Verificar se o prestador pertence ao usuário
-    const providerCheck = await pool.query(
-      'SELECT id, name FROM service_providers WHERE id = $1 AND user_id = $2',
-      [id, userId]
-    );
+    const { serviceProviderRepository } = getRepositories();
 
-    if (providerCheck.rows.length === 0) {
+    // Verificar se o prestador pertence ao usuário
+    const provider = await serviceProviderRepository.findOne({
+      where: {
+        id: parseInt(id),
+        user_id: userId
+      },
+      select: ['id', 'name']
+    });
+
+    if (!provider) {
       return res.status(404).json({
         error: 'Prestador de serviço não encontrado',
         message: 'Prestador de serviço não existe ou não pertence ao usuário'
       });
     }
 
-    await pool.query('DELETE FROM service_providers WHERE id = $1', [id]);
+    await serviceProviderRepository.delete(parseInt(id));
 
     logger.info('Service provider deleted', {
       serviceProviderId: id,
       userId,
-      name: providerCheck.rows[0].name
+      name: provider.name
     });
 
     res.json({
@@ -292,27 +330,36 @@ const deleteServiceProvider = async (req, res) => {
   }
 };
 
-// Listar prestadores favoritos do usuário
+/**
+ * GET /api/service-providers/favorites
+ * Listar prestadores favoritos do usuário
+ */
 const getFavoriteProviders = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const result = await pool.query(
-      `SELECT * FROM service_providers
-       WHERE user_id = $1 AND is_favorite = true
-       ORDER BY rating DESC, name ASC`,
-      [userId]
-    );
+    const { serviceProviderRepository } = getRepositories();
+
+    const providers = await serviceProviderRepository.find({
+      where: {
+        user_id: userId,
+        is_favorite: true
+      },
+      order: {
+        rating: 'DESC',
+        name: 'ASC'
+      }
+    });
 
     logger.info('Favorite service providers retrieved', {
       userId,
-      count: result.rows.length
+      count: providers.length
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: providers,
+      count: providers.length
     });
   } catch (error) {
     logger.error('Error retrieving favorite service providers', {
@@ -328,29 +375,39 @@ const getFavoriteProviders = async (req, res) => {
   }
 };
 
-// Listar prestadores por tipo
+/**
+ * GET /api/service-providers/type/:type
+ * Listar prestadores por tipo
+ */
 const getProvidersByType = async (req, res) => {
   try {
     const { type } = req.params;
     const userId = req.user.id;
 
-    const result = await pool.query(
-      `SELECT * FROM service_providers
-       WHERE user_id = $1 AND type = $2
-       ORDER BY is_favorite DESC, rating DESC, name ASC`,
-      [userId, type]
-    );
+    const { serviceProviderRepository } = getRepositories();
+
+    const providers = await serviceProviderRepository.find({
+      where: {
+        user_id: userId,
+        type
+      },
+      order: {
+        is_favorite: 'DESC',
+        rating: 'DESC',
+        name: 'ASC'
+      }
+    });
 
     logger.info('Service providers retrieved by type', {
       userId,
       type,
-      count: result.rows.length
+      count: providers.length
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: providers,
+      count: providers.length
     });
   } catch (error) {
     logger.error('Error retrieving service providers by type', {
