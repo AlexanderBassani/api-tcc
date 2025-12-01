@@ -58,7 +58,6 @@ describe('Service Provider Routes API', () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM service_providers WHERE user_id IN ($1, $2)', [userId, adminId]);
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
-    await pool.end();
   });
 
   describe('POST /api/service-providers', () => {

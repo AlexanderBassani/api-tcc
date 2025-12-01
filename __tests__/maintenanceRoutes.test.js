@@ -58,7 +58,6 @@ describe('Maintenance Routes API', () => {
     await pool.query('DELETE FROM maintenances WHERE vehicle_id IN (SELECT id FROM vehicles WHERE user_id = $1)', [userId]);
     await pool.query('DELETE FROM vehicles WHERE user_id = $1', [userId]);
     await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-    await pool.end();
   });
 
   describe('POST /api/maintenances', () => {

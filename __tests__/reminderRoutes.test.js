@@ -80,7 +80,6 @@ describe('Reminder Routes API', () => {
     await pool.query('DELETE FROM reminders WHERE vehicle_id = $1', [testVehicle.id]);
     await pool.query('DELETE FROM vehicles WHERE user_id IN ($1, $2)', [userId, adminId]);
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
-    await pool.end();
   });
 
   describe('POST /api/reminders', () => {

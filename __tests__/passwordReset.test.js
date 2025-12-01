@@ -23,7 +23,6 @@ describe('Password Reset API', () => {
   afterAll(async () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM users WHERE id = $1', [testUserId]);
-    await pool.end();
   });
 
   describe('Complete Password Reset Flow', () => {

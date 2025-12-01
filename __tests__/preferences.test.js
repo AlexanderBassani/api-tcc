@@ -38,7 +38,6 @@ describe('Preferences API', () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM user_preferences WHERE user_id = $1', [testUserId]);
     await pool.query('DELETE FROM users WHERE id = $1', [testUserId]);
-    await pool.end();
   });
 
   afterEach(async () => {

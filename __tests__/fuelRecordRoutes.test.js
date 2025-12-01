@@ -82,7 +82,6 @@ describe('Fuel Record Routes API', () => {
       await pool.query('DELETE FROM vehicles WHERE id = $1', [testVehicle.id]);
     }
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
-    await pool.end();
   });
 
   describe('POST /api/fuel-records', () => {

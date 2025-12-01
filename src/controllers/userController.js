@@ -21,6 +21,9 @@ let preferencesRepository;
 
 // Inicializar repositories quando o Data Source estiver pronto
 const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
   if (!userRepository) {
     userRepository = AppDataSource.getRepository('User');
     preferencesRepository = AppDataSource.getRepository('UserPreference');

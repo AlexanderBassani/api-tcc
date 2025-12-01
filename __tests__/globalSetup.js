@@ -4,16 +4,8 @@ module.exports = async () => {
   process.env.NODE_ENV = 'test';
   process.env.LOG_LEVEL = 'error';
 
-  console.log('🧪 Jest Global Setup: Initializing TypeORM...');
+  console.log('🧪 Jest Global Setup: Test environment configured');
 
-  // Import and initialize TypeORM
-  const { initializeDatabase } = require('../src/config/typeorm');
-
-  try {
-    await initializeDatabase();
-    console.log('✅ Jest Global Setup: TypeORM initialized successfully');
-  } catch (error) {
-    console.error('❌ Jest Global Setup: Failed to initialize TypeORM:', error.message);
-    throw error;
-  }
+  // Note: TypeORM initialization is now handled in app.js
+  // which runs in the same context as tests, avoiding context isolation issues
 };

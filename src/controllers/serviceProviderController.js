@@ -5,6 +5,9 @@ const logger = require('../config/logger');
 let serviceProviderRepository = null;
 
 const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
   if (!serviceProviderRepository) {
     serviceProviderRepository = AppDataSource.getRepository('ServiceProvider');
   }

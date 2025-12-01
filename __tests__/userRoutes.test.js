@@ -8,14 +8,24 @@ describe('User Routes API', () => {
   let testUserId;
   let adminToken;
   let adminUserId;
+  let testUsername;
+  let testEmail;
+  let adminUsername;
+  let adminEmail;
 
   beforeAll(async () => {
+    // Gerar dados únicos para os usuários de teste
+    testUsername = generateTestUsername('testuser_routes');
+    testEmail = generateTestEmail('test.routes');
+    adminUsername = generateTestUsername('adminuser_test');
+    adminEmail = generateTestEmail('admin.test');
+
     // Criar usuário de teste comum
     const userResult = await pool.query(
       `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id`,
-      ['Test', 'User', 'testuser_routes', 'test.routes@test.com', '$2b$10$abcdefghijklmnopqrstuvwxyz', 'user', 'active']
+      ['Test', 'User', testUsername, testEmail, '$2b$10$abcdefghijklmnopqrstuvwxyz', 'user', 'active']
     );
     testUserId = userResult.rows[0].id;
 
@@ -24,7 +34,7 @@ describe('User Routes API', () => {
       `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id`,
-      ['Admin', 'Test', 'adminuser_test', 'admin.test@test.com', '$2b$10$abcdefghijklmnopqrstuvwxyz', 'admin', 'active']
+      ['Admin', 'Test', adminUsername, adminEmail, '$2b$10$abcdefghijklmnopqrstuvwxyz', 'admin', 'active']
     );
     adminUserId = adminResult.rows[0].id;
   });
@@ -32,7 +42,6 @@ describe('User Routes API', () => {
   afterAll(async () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [testUserId, adminUserId]);
-    await pool.end();
   });
 
   describe('POST /api/users/register', () => {
@@ -114,7 +123,7 @@ describe('User Routes API', () => {
         .send({
           first_name: 'Test',
           last_name: 'User',
-          username: 'testuser_routes',
+          username: testUsername,
           email: 'new@test.com',
           password: 'password123'
         });

@@ -43,13 +43,17 @@ const logger = require('./config/logger');
 require('dotenv').config();
 
 // Initialize TypeORM
-const { initializeDatabase } = require('./config/typeorm');
+const { initializeDatabase, AppDataSource } = require('./config/typeorm');
 
-// Create initialization promise
+// Create initialization promise - only initialize if not already initialized
 const typeormReady = (async () => {
   try {
-    await initializeDatabase();
-    console.log('✅ TypeORM initialized in app.js');
+    if (!AppDataSource.isInitialized) {
+      await initializeDatabase();
+      console.log('✅ TypeORM initialized in app.js');
+    } else {
+      console.log('✅ TypeORM already initialized (from globalSetup or elsewhere)');
+    }
     return true;
   } catch (error) {
     console.error('❌ Error initializing TypeORM in app.js:', error.message);

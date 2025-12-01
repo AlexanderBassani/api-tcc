@@ -76,7 +76,6 @@ describe('Vehicle Routes API', () => {
     // Limpar todos os dados de teste
     await pool.query('DELETE FROM vehicles WHERE user_id IN ($1, $2)', [userId, adminId]);
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
-    await pool.end();
   });
 
   // Helper function para gerar placa única

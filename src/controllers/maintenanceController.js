@@ -6,6 +6,9 @@ let maintenanceRepository = null;
 let vehicleRepository = null;
 
 const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
   if (!maintenanceRepository) {
     maintenanceRepository = AppDataSource.getRepository('Maintenance');
     vehicleRepository = AppDataSource.getRepository('Vehicle');

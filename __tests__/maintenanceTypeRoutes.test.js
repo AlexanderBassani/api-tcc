@@ -79,7 +79,6 @@ describe('Maintenance Type Routes API', () => {
     // Limpar outros tipos criados nos testes
     await pool.query('DELETE FROM maintenance_types WHERE name LIKE $1', ['test_%']);
     await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
-    await pool.end();
   });
 
   describe('GET /api/maintenance-types', () => {

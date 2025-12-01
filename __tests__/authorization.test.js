@@ -63,7 +63,6 @@ describe('Authorization Middleware', () => {
   afterAll(async () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3)', [adminUserId, regularUserId, targetUserId]);
-    await pool.end();
   });
 
   describe('POST /api/users (Create User - Admin Only)', () => {

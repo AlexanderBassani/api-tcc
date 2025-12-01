@@ -1,7 +1,21 @@
-const pool = require('../config/database');
+const { AppDataSource } = require('../config/typeorm');
+const logger = require('../config/logger');
+
+// Repository cache
+let userPreferenceRepository = null;
+
+const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
+  if (!userPreferenceRepository) {
+    userPreferenceRepository = AppDataSource.getRepository('UserPreference');
+  }
+  return { userPreferenceRepository };
+};
 
 /**
- * @desc    Obter preferências do usuário autenticado ou de outro usuário (por ID)
+ * @desc    Obter preferências do usuário autenticado ou de outro (por ID)
  * @route   GET /api/preferences/:userId?
  * @access  Private
  */
@@ -18,26 +32,27 @@ const getUserPreferences = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `SELECT
-        id,
-        user_id,
-        theme_mode,
-        theme_color,
-        font_size,
-        compact_mode,
-        animations_enabled,
-        high_contrast,
-        reduce_motion,
-        created_at,
-        updated_at
-      FROM user_preferences
-      WHERE user_id = $1`,
-      [userId]
-    );
+    const { userPreferenceRepository } = getRepositories();
 
-    // Se não existir preferências (caso raro), retornar valores padrão
-    if (result.rows.length === 0) {
+    const preferences = await userPreferenceRepository.findOne({
+      where: { user_id: userId },
+      select: [
+        'id',
+        'user_id',
+        'theme_mode',
+        'theme_color',
+        'font_size',
+        'compact_mode',
+        'animations_enabled',
+        'high_contrast',
+        'reduce_motion',
+        'created_at',
+        'updated_at'
+      ]
+    });
+
+    // If no preferences exist, return defaults
+    if (!preferences) {
       return res.status(200).json({
         user_id: userId,
         theme_mode: 'system',
@@ -47,15 +62,25 @@ const getUserPreferences = async (req, res) => {
         animations_enabled: true,
         high_contrast: false,
         reduce_motion: false,
-        message: 'Preferências não encontradas. Por favor, atualize suas preferências.'
+        message: 'Preferências não encontradas, retornando valores padrão'
       });
     }
 
-    res.status(200).json(result.rows[0]);
+    logger.info('User preferences retrieved', {
+      userId,
+      requestedBy: req.user.id
+    });
+
+    res.status(200).json(preferences);
   } catch (error) {
-    console.error('Erro ao obter preferências:', error);
+    logger.error('Error retrieving user preferences', {
+      userId: req.params.userId || req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+
     res.status(500).json({
-      error: 'Erro ao obter preferências',
+      error: 'Erro ao buscar preferências',
       message: error.message
     });
   }
@@ -89,6 +114,22 @@ const updateUserPreferences = async (req, res) => {
       reduce_motion
     } = req.body;
 
+    // Validar se pelo menos um campo foi fornecido
+    const hasAnyField = theme_mode !== undefined ||
+      theme_color !== undefined ||
+      font_size !== undefined ||
+      compact_mode !== undefined ||
+      animations_enabled !== undefined ||
+      high_contrast !== undefined ||
+      reduce_motion !== undefined;
+
+    if (!hasAnyField) {
+      return res.status(400).json({
+        error: 'Validação falhou',
+        message: 'Nenhum campo para atualizar foi fornecido'
+      });
+    }
+
     // Validar theme_mode
     if (theme_mode && !['light', 'dark', 'system'].includes(theme_mode)) {
       return res.status(400).json({
@@ -105,121 +146,54 @@ const updateUserPreferences = async (req, res) => {
       });
     }
 
-    // Verificar se já existe preferências para o usuário
-    const existingPrefs = await pool.query(
-      'SELECT id FROM user_preferences WHERE user_id = $1',
-      [userId]
-    );
+    const { userPreferenceRepository } = getRepositories();
 
-    let result;
+    // Verificar se já existe preferências
+    let preferences = await userPreferenceRepository.findOne({
+      where: { user_id: userId }
+    });
 
-    if (existingPrefs.rows.length === 0) {
-      // Criar novas preferências
-      result = await pool.query(
-        `INSERT INTO user_preferences (
-          user_id,
-          theme_mode,
-          theme_color,
-          font_size,
-          compact_mode,
-          animations_enabled,
-          high_contrast,
-          reduce_motion
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING
-          id,
-          user_id,
-          theme_mode,
-          theme_color,
-          font_size,
-          compact_mode,
-          animations_enabled,
-          high_contrast,
-          reduce_motion,
-          created_at,
-          updated_at`,
-        [
-          userId,
-          theme_mode || 'system',
-          theme_color || 'blue',
-          font_size || 'medium',
-          compact_mode !== undefined ? compact_mode : false,
-          animations_enabled !== undefined ? animations_enabled : true,
-          high_contrast !== undefined ? high_contrast : false,
-          reduce_motion !== undefined ? reduce_motion : false
-        ]
-      );
+    if (!preferences) {
+      // Criar novas preferências com valores fornecidos ou padrões
+      preferences = userPreferenceRepository.create({
+        user_id: userId,
+        theme_mode: theme_mode || 'system',
+        theme_color: theme_color || 'blue',
+        font_size: font_size || 'medium',
+        compact_mode: compact_mode !== undefined ? compact_mode : false,
+        animations_enabled: animations_enabled !== undefined ? animations_enabled : true,
+        high_contrast: high_contrast !== undefined ? high_contrast : false,
+        reduce_motion: reduce_motion !== undefined ? reduce_motion : false
+      });
     } else {
-      // Atualizar preferências existentes
-      // Construir query dinamicamente apenas com campos fornecidos
-      const updates = [];
-      const values = [];
-      let paramCount = 1;
-
-      if (theme_mode !== undefined) {
-        updates.push(`theme_mode = $${paramCount++}`);
-        values.push(theme_mode);
-      }
-      if (theme_color !== undefined) {
-        updates.push(`theme_color = $${paramCount++}`);
-        values.push(theme_color);
-      }
-      if (font_size !== undefined) {
-        updates.push(`font_size = $${paramCount++}`);
-        values.push(font_size);
-      }
-      if (compact_mode !== undefined) {
-        updates.push(`compact_mode = $${paramCount++}`);
-        values.push(compact_mode);
-      }
-      if (animations_enabled !== undefined) {
-        updates.push(`animations_enabled = $${paramCount++}`);
-        values.push(animations_enabled);
-      }
-      if (high_contrast !== undefined) {
-        updates.push(`high_contrast = $${paramCount++}`);
-        values.push(high_contrast);
-      }
-      if (reduce_motion !== undefined) {
-        updates.push(`reduce_motion = $${paramCount++}`);
-        values.push(reduce_motion);
-      }
-
-      if (updates.length === 0) {
-        return res.status(400).json({
-          error: 'Validação falhou',
-          message: 'Nenhum campo para atualizar foi fornecido'
-        });
-      }
-
-      values.push(userId);
-
-      result = await pool.query(
-        `UPDATE user_preferences
-        SET ${updates.join(', ')}
-        WHERE user_id = $${paramCount}
-        RETURNING
-          id,
-          user_id,
-          theme_mode,
-          theme_color,
-          font_size,
-          compact_mode,
-          animations_enabled,
-          high_contrast,
-          reduce_motion,
-          created_at,
-          updated_at`,
-        values
-      );
+      // Atualizar apenas os campos fornecidos
+      if (theme_mode !== undefined) preferences.theme_mode = theme_mode;
+      if (theme_color !== undefined) preferences.theme_color = theme_color;
+      if (font_size !== undefined) preferences.font_size = font_size;
+      if (compact_mode !== undefined) preferences.compact_mode = compact_mode;
+      if (animations_enabled !== undefined) preferences.animations_enabled = animations_enabled;
+      if (high_contrast !== undefined) preferences.high_contrast = high_contrast;
+      if (reduce_motion !== undefined) preferences.reduce_motion = reduce_motion;
     }
+
+    const savedPreferences = await userPreferenceRepository.save(preferences);
+
+    logger.info('User preferences updated', {
+      userId,
+      updatedBy: req.user.id
+    });
 
     res.status(200).json({
       message: 'Preferências atualizadas com sucesso',
-      preferences: result.rows[0]
+      preferences: savedPreferences
     });
   } catch (error) {
-    console.error('Erro ao atualizar preferências:', error);
+    logger.error('Error updating user preferences', {
+      userId: req.params.userId || req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+
     res.status(500).json({
       error: 'Erro ao atualizar preferências',
       message: error.message
@@ -245,25 +219,34 @@ const resetUserPreferences = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `DELETE FROM user_preferences
-      WHERE user_id = $1
-      RETURNING id`,
-      [userId]
-    );
+    const { userPreferenceRepository } = getRepositories();
 
-    if (result.rows.length === 0) {
+    const result = await userPreferenceRepository.delete({
+      user_id: userId
+    });
+
+    if (result.affected === 0) {
       return res.status(404).json({
         error: 'Não encontrado',
         message: 'Nenhuma preferência encontrada para resetar'
       });
     }
 
+    logger.info('User preferences reset', {
+      userId,
+      resetBy: req.user.id
+    });
+
     res.status(200).json({
       message: 'Preferências resetadas para valores padrão com sucesso'
     });
   } catch (error) {
-    console.error('Erro ao resetar preferências:', error);
+    logger.error('Error resetting user preferences', {
+      userId: req.params.userId || req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+
     res.status(500).json({
       error: 'Erro ao resetar preferências',
       message: error.message
@@ -296,83 +279,45 @@ const updateTheme = async (req, res) => {
       });
     }
 
+    const { userPreferenceRepository } = getRepositories();
+
     // Verificar se já existe preferências
-    const existingPrefs = await pool.query(
-      'SELECT id FROM user_preferences WHERE user_id = $1',
-      [userId]
-    );
+    let preferences = await userPreferenceRepository.findOne({
+      where: { user_id: userId }
+    });
 
-    let result;
-
-    if (existingPrefs.rows.length === 0) {
+    if (!preferences) {
       // Criar com valores padrão, mas com o tema especificado
-      result = await pool.query(
-        `INSERT INTO user_preferences (
-          user_id,
-          theme_mode,
-          theme_color
-        ) VALUES ($1, $2, $3)
-        RETURNING
-          id,
-          user_id,
-          theme_mode,
-          theme_color,
-          font_size,
-          compact_mode,
-          animations_enabled,
-          high_contrast,
-          reduce_motion,
-          created_at,
-          updated_at`,
-        [
-          userId,
-          theme_mode || 'system',
-          theme_color || 'blue'
-        ]
-      );
+      preferences = userPreferenceRepository.create({
+        user_id: userId,
+        theme_mode: theme_mode || 'system',
+        theme_color: theme_color || 'blue'
+      });
     } else {
       // Atualizar apenas os campos de tema
-      const updates = [];
-      const values = [];
-      let paramCount = 1;
-
-      if (theme_mode !== undefined) {
-        updates.push(`theme_mode = $${paramCount++}`);
-        values.push(theme_mode);
-      }
-      if (theme_color !== undefined) {
-        updates.push(`theme_color = $${paramCount++}`);
-        values.push(theme_color);
-      }
-
-      values.push(userId);
-
-      result = await pool.query(
-        `UPDATE user_preferences
-        SET ${updates.join(', ')}
-        WHERE user_id = $${paramCount}
-        RETURNING
-          id,
-          user_id,
-          theme_mode,
-          theme_color,
-          font_size,
-          compact_mode,
-          animations_enabled,
-          high_contrast,
-          reduce_motion,
-          created_at,
-          updated_at`,
-        values
-      );
+      if (theme_mode !== undefined) preferences.theme_mode = theme_mode;
+      if (theme_color !== undefined) preferences.theme_color = theme_color;
     }
+
+    const savedPreferences = await userPreferenceRepository.save(preferences);
+
+    logger.info('User theme updated', {
+      userId,
+      theme_mode: savedPreferences.theme_mode,
+      theme_color: savedPreferences.theme_color
+    });
 
     res.status(200).json({
       message: 'Tema atualizado com sucesso',
-      preferences: result.rows[0]
+      preferences: savedPreferences
     });
   } catch (error) {
-    console.error('Erro ao atualizar tema:', error);
+    logger.error('Error updating user theme', {
+      userId: req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+
     res.status(500).json({
       error: 'Erro ao atualizar tema',
       message: error.message
