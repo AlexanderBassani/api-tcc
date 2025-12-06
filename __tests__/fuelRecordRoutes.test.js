@@ -1,7 +1,12 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
+
+// TypeORM Repositories
+const userRepository = AppDataSource.getRepository('User');
+const vehicleRepository = AppDataSource.getRepository('Vehicle');
+const fuelRecordRepository = AppDataSource.getRepository('FuelRecord');
 
 describe('Fuel Record Routes API', () => {
   let userId, adminId;
@@ -9,7 +14,7 @@ describe('Fuel Record Routes API', () => {
   let testVehicle, testFuelRecord;
 
   beforeAll(async () => {
-    // Criar usuário de teste
+    // Create user for testing
     const testUsername = generateTestUsername('fueluser');
     const testEmail = generateTestEmail('fueluser');
 
@@ -31,7 +36,7 @@ describe('Fuel Record Routes API', () => {
     userId = userResponse.body.user.id;
     userToken = userResponse.body.token;
 
-    // Criar admin de teste
+    // Create admin user for testing
     const adminUsername = generateTestUsername('fueladmin');
     const adminEmail = generateTestEmail('fueladmin');
 
@@ -53,7 +58,7 @@ describe('Fuel Record Routes API', () => {
     adminId = adminResponse.body.user.id;
     adminToken = adminResponse.body.token;
 
-    // Criar veículo de teste
+    // Create test vehicle
     const testPlate = generateTestPlate('mercosul');
     const vehicleResponse = await request(app)
       .post('/api/vehicles')
@@ -76,12 +81,12 @@ describe('Fuel Record Routes API', () => {
   });
 
   afterAll(async () => {
-    // Limpar dados de teste
+    // Clean test data
     if (testVehicle) {
-      await pool.query('DELETE FROM fuel_records WHERE vehicle_id = $1', [testVehicle.id]);
-      await pool.query('DELETE FROM vehicles WHERE id = $1', [testVehicle.id]);
+      await fuelRecordRepository.delete({ vehicle_id: testVehicle.id });
+      await vehicleRepository.delete(testVehicle.id);
     }
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
+    await userRepository.delete([userId, adminId]);
   });
 
   describe('POST /api/fuel-records', () => {
@@ -419,7 +424,7 @@ describe('Fuel Record Routes API', () => {
     let updateTestRecord;
 
     beforeAll(async () => {
-      // Criar um registro específico para testes de UPDATE com km maior que todos os outros
+      // Create a specific record for UPDATE tests with km greater than all others
       const today = new Date().toISOString().split('T')[0];
       const response = await request(app)
         .post('/api/fuel-records')
@@ -447,7 +452,7 @@ describe('Fuel Record Routes API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.km).toBe(16000); // km não mudou
+      expect(response.body.data.km).toBe(16000); // km did not change
       expect(response.body.data.gas_station).toBe('Posto Ipiranga');
       expect(response.body.data.notes).toBe('Abastecimento atualizado');
     });
@@ -507,7 +512,7 @@ describe('Fuel Record Routes API', () => {
     let deleteRecord;
 
     beforeAll(async () => {
-      // Criar registro para deletar
+      // Create record to delete
       const today = new Date().toISOString().split('T')[0];
       const response = await request(app)
         .post('/api/fuel-records')
@@ -563,7 +568,7 @@ describe('Fuel Record Routes API', () => {
     let otherUserVehicle, otherUserFuelRecord;
 
     beforeAll(async () => {
-      // Criar veículo e registro com admin
+      // Create vehicle and record with admin
       const adminPlate = generateTestPlate('mercosul');
       const vehicleResponse = await request(app)
         .post('/api/vehicles')

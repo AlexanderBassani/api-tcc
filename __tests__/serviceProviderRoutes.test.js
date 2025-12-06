@@ -1,14 +1,20 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
 
 describe('Service Provider Routes API', () => {
   let userId, adminId;
   let userToken, adminToken;
   let testProvider;
+  let usersRepository;
+  let serviceProvidersRepository;
 
   beforeAll(async () => {
+    // Inicializar repositories
+    usersRepository = AppDataSource.getRepository('User');
+    serviceProvidersRepository = AppDataSource.getRepository('ServiceProvider');
+
     // Criar usuário de teste
     const testUsername = generateTestUsername('provideruser');
     const testEmail = generateTestEmail('provideruser');
@@ -55,9 +61,10 @@ describe('Service Provider Routes API', () => {
   });
 
   afterAll(async () => {
-    // Limpar dados de teste
-    await pool.query('DELETE FROM service_providers WHERE user_id IN ($1, $2)', [userId, adminId]);
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
+    // Limpar dados de teste usando TypeORM
+    await serviceProvidersRepository.delete({ user_id: userId });
+    await serviceProvidersRepository.delete({ user_id: adminId });
+    await usersRepository.delete([userId, adminId]);
   });
 
   describe('POST /api/service-providers', () => {
@@ -519,3 +526,5 @@ describe('Service Provider Routes API', () => {
     });
   });
 });
+
+

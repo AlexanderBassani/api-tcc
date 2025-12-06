@@ -57,12 +57,6 @@ module.exports = new EntitySchema({
       type: 'text',
       nullable: true
     },
-    consumption_km_per_liter: {
-      type: 'decimal',
-      precision: 5,
-      scale: 2,
-      nullable: true
-    },
     created_at: {
       type: 'timestamp',
       createDate: true

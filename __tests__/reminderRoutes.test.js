@@ -1,7 +1,11 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
+
+const userRepository = AppDataSource.getRepository('User');
+const vehicleRepository = AppDataSource.getRepository('Vehicle');
+const remindersRepository = AppDataSource.getRepository('Reminder');
 
 describe('Reminder Routes API', () => {
   let userId, adminId;
@@ -77,9 +81,11 @@ describe('Reminder Routes API', () => {
 
   afterAll(async () => {
     // Limpar dados de teste
-    await pool.query('DELETE FROM reminders WHERE vehicle_id = $1', [testVehicle.id]);
-    await pool.query('DELETE FROM vehicles WHERE user_id IN ($1, $2)', [userId, adminId]);
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
+    if (testVehicle) {
+      await remindersRepository.delete({ vehicle_id: testVehicle.id });
+      await vehicleRepository.delete(testVehicle.id);
+    }
+    await userRepository.delete([userId, adminId]);
   });
 
   describe('POST /api/reminders', () => {
@@ -644,3 +650,4 @@ describe('Reminder Routes API', () => {
     });
   });
 });
+

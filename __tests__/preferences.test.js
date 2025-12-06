@@ -1,14 +1,36 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
+const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+// Repositories
+let usersRepository;
+let preferencesRepository;
+
+// Inicializar repositories quando o Data Source estiver pronto
+const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
+  if (!usersRepository) {
+    usersRepository = AppDataSource.getRepository('User');
+  }
+  if (!preferencesRepository) {
+    preferencesRepository = AppDataSource.getRepository('UserPreference');
+  }
+  return { usersRepository, preferencesRepository };
+};
 
 describe('Preferences API', () => {
   let authToken;
   let testUserId;
+  let testUsername;
+  let testEmail;
 
   beforeAll(async () => {
-    // Limpar usuário de teste se já existir (cascade vai deletar preferências)
-    await pool.query('DELETE FROM users WHERE username = $1', ['prefs_test_user']);
+    // Gerar dados únicos para o usuário de teste
+    testUsername = generateTestUsername('prefs_test');
+    testEmail = generateTestEmail('prefs.test');
 
     // Criar usuário de teste via registro para criar preferências automaticamente
     const registerResponse = await request(app)
@@ -16,8 +38,8 @@ describe('Preferences API', () => {
       .send({
         first_name: 'Preferences',
         last_name: 'Test',
-        username: 'prefs_test_user',
-        email: 'prefs.test@test.com',
+        username: testUsername,
+        email: testEmail,
         password: 'testpass123'
       });
 
@@ -27,7 +49,7 @@ describe('Preferences API', () => {
     const loginResponse = await request(app)
       .post('/api/users/login')
       .send({
-        login: 'prefs_test_user',
+        login: testUsername,
         password: 'testpass123'
       });
 
@@ -36,24 +58,25 @@ describe('Preferences API', () => {
 
   afterAll(async () => {
     // Limpar dados de teste
-    await pool.query('DELETE FROM user_preferences WHERE user_id = $1', [testUserId]);
-    await pool.query('DELETE FROM users WHERE id = $1', [testUserId]);
+    const { usersRepository } = getRepositories();
+    await usersRepository.delete({ id: testUserId });
   });
 
   afterEach(async () => {
     // Resetar preferências para valores padrão após cada teste
-    await pool.query(
-      `UPDATE user_preferences
-       SET theme_mode = 'system',
-           theme_color = 'blue',
-           font_size = 'medium',
-           compact_mode = false,
-           animations_enabled = true,
-           high_contrast = false,
-           reduce_motion = false
-       WHERE user_id = $1`,
-      [testUserId]
-    );
+    const { preferencesRepository } = getRepositories();
+    const preference = await preferencesRepository.findOne({ where: { user_id: testUserId } });
+
+    if (preference) {
+      preference.theme_mode = 'system';
+      preference.theme_color = 'blue';
+      preference.font_size = 'medium';
+      preference.compact_mode = false;
+      preference.animations_enabled = true;
+      preference.high_contrast = false;
+      preference.reduce_motion = false;
+      await preferencesRepository.save(preference);
+    }
   });
 
   describe('GET /api/preferences', () => {
@@ -77,12 +100,15 @@ describe('Preferences API', () => {
 
     test('Should return updated preferences when they exist', async () => {
       // Atualizar preferências
-      await pool.query(
-        `UPDATE user_preferences
-         SET theme_mode = $2, theme_color = $3, font_size = $4
-         WHERE user_id = $1`,
-        [testUserId, 'dark', 'purple', 'large']
-      );
+      const { preferencesRepository } = getRepositories();
+      const preference = await preferencesRepository.findOne({ where: { user_id: testUserId } });
+
+      if (preference) {
+        preference.theme_mode = 'dark';
+        preference.theme_color = 'purple';
+        preference.font_size = 'large';
+        await preferencesRepository.save(preference);
+      }
 
       const response = await request(app)
         .get('/api/preferences')
@@ -224,12 +250,14 @@ describe('Preferences API', () => {
   describe('DELETE /api/preferences', () => {
     test('Should reset preferences successfully', async () => {
       // Atualizar preferências para algo diferente do padrão
-      await pool.query(
-        `UPDATE user_preferences
-         SET theme_mode = 'dark', theme_color = 'purple'
-         WHERE user_id = $1`,
-        [testUserId]
-      );
+      const { preferencesRepository } = getRepositories();
+      const preference = await preferencesRepository.findOne({ where: { user_id: testUserId } });
+
+      if (preference) {
+        preference.theme_mode = 'dark';
+        preference.theme_color = 'purple';
+        await preferencesRepository.save(preference);
+      }
 
       const response = await request(app)
         .delete('/api/preferences')
@@ -239,11 +267,8 @@ describe('Preferences API', () => {
       expect(response.body).toHaveProperty('message', 'Preferências resetadas para valores padrão com sucesso');
 
       // Verificar se foi deletado
-      const checkResult = await pool.query(
-        'SELECT * FROM user_preferences WHERE user_id = $1',
-        [testUserId]
-      );
-      expect(checkResult.rows.length).toBe(0);
+      const checkPreference = await preferencesRepository.findOne({ where: { user_id: testUserId } });
+      expect(checkPreference).toBeNull();
     });
 
     test('Should fail without authentication token', async () => {
@@ -415,3 +440,5 @@ describe('Preferences API', () => {
     });
   });
 });
+
+

@@ -624,7 +624,10 @@ const getUserVehiclesByUserId = async (req, res) => {
         email: user.email
       },
       data: vehicles,
-      count: vehicles.length
+      count: vehicles.length,
+      filters: {
+        include_inactive: include_inactive.toString()
+      }
     });
   } catch (error) {
     logger.error('Error retrieving user vehicles by admin', {

@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
 
 // Ensure test environment
@@ -12,8 +12,14 @@ describe('Vehicle Routes API', () => {
   let adminToken;
   let adminId;
   let testVehicleId;
+  let usersRepository;
+  let vehiclesRepository;
 
   beforeAll(async () => {
+    // Initialize repositories
+    usersRepository = AppDataSource.getRepository('User');
+    vehiclesRepository = AppDataSource.getRepository('Vehicle');
+
     // Criar usuário de teste comum via API
     const testUsername = generateTestUsername('vehicleuser');
     const testEmail = generateTestEmail('vehicleuser');
@@ -57,9 +63,9 @@ describe('Vehicle Routes API', () => {
     adminId = adminRegisterResponse.body.user.id;
 
     // Atualizar role para admin
-    await pool.query(
-      'UPDATE users SET role = $1 WHERE id = $2',
-      ['admin', adminId]
+    await usersRepository.update(
+      { id: adminId },
+      { role: 'admin' }
     );
 
     // Fazer login do admin
@@ -74,8 +80,10 @@ describe('Vehicle Routes API', () => {
 
   afterAll(async () => {
     // Limpar todos os dados de teste
-    await pool.query('DELETE FROM vehicles WHERE user_id IN ($1, $2)', [userId, adminId]);
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
+    await vehiclesRepository.delete({ user_id: userId });
+    await vehiclesRepository.delete({ user_id: adminId });
+    await usersRepository.delete({ id: userId });
+    await usersRepository.delete({ id: adminId });
   });
 
   // Helper function para gerar placa única
@@ -515,7 +523,7 @@ describe('Vehicle Routes API', () => {
       expect(response.body.data.plate).toBe(testPlate);
 
       // Cleanup
-      await pool.query('DELETE FROM vehicles WHERE id = $1', [response.body.data.id]);
+      await vehiclesRepository.delete({ id: response.body.data.id });
     });
 
     test('Should handle new format plate ABC1D23', async () => {
@@ -536,7 +544,7 @@ describe('Vehicle Routes API', () => {
       expect(response.body.data.plate).toBe(testPlate);
 
       // Cleanup
-      await pool.query('DELETE FROM vehicles WHERE id = $1', [response.body.data.id]);
+      await vehiclesRepository.delete({ id: response.body.data.id });
     });
   });
 
@@ -587,8 +595,8 @@ describe('Vehicle Routes API', () => {
 
     afterAll(async () => {
       // Limpar dados do usuário regular
-      await pool.query('DELETE FROM vehicles WHERE user_id = $1', [regularUserId]);
-      await pool.query('DELETE FROM users WHERE id = $1', [regularUserId]);
+      await vehiclesRepository.delete({ user_id: regularUserId });
+      await usersRepository.delete({ id: regularUserId });
     });
 
     test('Should allow admin to get user vehicles', async () => {
@@ -693,7 +701,8 @@ describe('Vehicle Routes API', () => {
       expect(response.body.count).toBe(0);
 
       // Cleanup
-      await pool.query('DELETE FROM users WHERE id = $1', [emptyUserId]);
+      await usersRepository.delete({ id: emptyUserId });
     });
   });
 });
+

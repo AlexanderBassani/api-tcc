@@ -13,18 +13,14 @@ module.exports = new EntitySchema({
       type: 'int',
       nullable: false
     },
-    maintenance_type_id: {
-      type: 'int',
-      nullable: true
-    },
     service_provider_id: {
       type: 'int',
       nullable: true
     },
     type: {
       type: 'varchar',
-      length: 100,
-      nullable: true
+      length: 50,
+      nullable: false
     },
     description: {
       type: 'text',
@@ -42,14 +38,23 @@ module.exports = new EntitySchema({
     },
     km_at_service: {
       type: 'int',
-      nullable: false
+      nullable: true
     },
-    is_completed: {
-      type: 'boolean',
-      default: false
+    next_service_km: {
+      type: 'int',
+      nullable: true
     },
-    notes: {
-      type: 'text',
+    next_service_date: {
+      type: 'date',
+      nullable: true
+    },
+    invoice_number: {
+      type: 'varchar',
+      length: 50,
+      nullable: true
+    },
+    warranty_until: {
+      type: 'date',
       nullable: true
     },
     created_at: {
@@ -69,15 +74,6 @@ module.exports = new EntitySchema({
         name: 'vehicle_id'
       },
       onDelete: 'CASCADE'
-    },
-    maintenanceType: {
-      type: 'many-to-one',
-      target: 'MaintenanceType',
-      joinColumn: {
-        name: 'maintenance_type_id'
-      },
-      onDelete: 'SET NULL',
-      nullable: true
     },
     serviceProvider: {
       type: 'many-to-one',

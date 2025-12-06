@@ -1,9 +1,36 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const path = require('path');
 const fs = require('fs').promises;
 const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
+const bcrypt = require('bcrypt');
+
+// Repositories
+let usersRepository;
+let vehiclesRepository;
+let maintenancesRepository;
+let attachmentsRepository;
+
+// Inicializar repositories quando o Data Source estiver pronto
+const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
+  if (!usersRepository) {
+    usersRepository = AppDataSource.getRepository('User');
+  }
+  if (!vehiclesRepository) {
+    vehiclesRepository = AppDataSource.getRepository('Vehicle');
+  }
+  if (!maintenancesRepository) {
+    maintenancesRepository = AppDataSource.getRepository('Maintenance');
+  }
+  if (!attachmentsRepository) {
+    attachmentsRepository = AppDataSource.getRepository('MaintenanceAttachment');
+  }
+  return { usersRepository, vehiclesRepository, maintenancesRepository, attachmentsRepository };
+};
 
 describe('Maintenance Attachment Routes', () => {
   let adminToken, userToken, regularUserToken;
@@ -14,37 +41,24 @@ describe('Maintenance Attachment Routes', () => {
   let otherUserVehicle, otherUserMaintenance;
 
   beforeAll(async () => {
-    // Create maintenance_attachments table if it doesn't exist
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS maintenance_attachments (
-        id SERIAL PRIMARY KEY,
-        maintenance_id INTEGER NOT NULL,
-        file_name VARCHAR(255) NOT NULL,
-        file_path VARCHAR(500) NOT NULL,
-        file_type VARCHAR(50) NOT NULL,
-        file_size INTEGER NOT NULL CHECK (file_size > 0),
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT fk_maintenance_attachments_maintenance
-          FOREIGN KEY (maintenance_id)
-          REFERENCES maintenances(id)
-          ON DELETE CASCADE
-      );
-    `);
+    const { usersRepository: usersRepo, vehiclesRepository: vehiclesRepo, maintenancesRepository: maintenancesRepo } = getRepositories();
 
-    const bcrypt = require('bcrypt');
     const hashedPassword = await bcrypt.hash('testpass123', 10);
 
-    // Criar usuário admin diretamente no banco
+    // Criar usuário admin
     const adminUsername = generateTestUsername('admin');
     const adminEmail = generateTestEmail('admin');
-    
-    const adminResult = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING *`,
-      ['Admin', 'Test', adminUsername, adminEmail, hashedPassword, 'admin', 'active']
-    );
-    adminUser = adminResult.rows[0];
+
+    const adminUserEntity = usersRepo.create({
+      first_name: 'Admin',
+      last_name: 'Test',
+      username: adminUsername,
+      email: adminEmail,
+      password_hash: hashedPassword,
+      role: 'admin',
+      status: 'active'
+    });
+    adminUser = await usersRepo.save(adminUserEntity);
 
     // Login admin
     const adminLoginResponse = await request(app)
@@ -53,24 +67,27 @@ describe('Maintenance Attachment Routes', () => {
         login: adminUsername,
         password: 'testpass123'
       });
-    
+
     if (!adminLoginResponse.body.token) {
       console.error('Admin login failed:', adminLoginResponse.body);
       throw new Error('Admin login failed');
     }
     adminToken = adminLoginResponse.body.token;
 
-    // Criar usuário regular diretamente no banco
+    // Criar usuário regular
     const regularUsername = generateTestUsername('regular');
     const regularEmail = generateTestEmail('regular');
-    
-    const regularResult = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING *`,
-      ['Regular', 'User', regularUsername, regularEmail, hashedPassword, 'user', 'active']
-    );
-    regularUser = regularResult.rows[0];
+
+    const regularUserEntity = usersRepo.create({
+      first_name: 'Regular',
+      last_name: 'User',
+      username: regularUsername,
+      email: regularEmail,
+      password_hash: hashedPassword,
+      role: 'user',
+      status: 'active'
+    });
+    regularUser = await usersRepo.save(regularUserEntity);
 
     // Login usuário regular
     const regularLoginResponse = await request(app)
@@ -79,7 +96,7 @@ describe('Maintenance Attachment Routes', () => {
         login: regularUsername,
         password: 'testpass123'
       });
-    
+
     if (!regularLoginResponse.body.token) {
       console.error('Regular user login failed:', regularLoginResponse.body);
       throw new Error('Regular user login failed');
@@ -177,19 +194,36 @@ describe('Maintenance Attachment Routes', () => {
   afterAll(async () => {
     // Limpar dados de teste
     try {
+      const { usersRepository: usersRepo, vehiclesRepository: vehiclesRepo, maintenancesRepository: maintenancesRepo, attachmentsRepository: attachmentsRepo } = getRepositories();
+
       // Limpar anexos
       if (testAttachmentIds.length > 0) {
-        await pool.query('DELETE FROM maintenance_attachments WHERE id = ANY($1)', [testAttachmentIds]);
+        await attachmentsRepo.delete(testAttachmentIds);
       }
 
       // Limpar manutenções
-      await pool.query('DELETE FROM maintenances WHERE id = $1 OR id = $2', [testMaintenance?.id, otherUserMaintenance?.id]);
+      if (testMaintenance?.id) {
+        await maintenancesRepo.delete(testMaintenance.id);
+      }
+      if (otherUserMaintenance?.id) {
+        await maintenancesRepo.delete(otherUserMaintenance.id);
+      }
 
       // Limpar veículos
-      await pool.query('DELETE FROM vehicles WHERE id = $1 OR id = $2', [testVehicle?.id, otherUserVehicle?.id]);
+      if (testVehicle?.id) {
+        await vehiclesRepo.delete(testVehicle.id);
+      }
+      if (otherUserVehicle?.id) {
+        await vehiclesRepo.delete(otherUserVehicle.id);
+      }
 
       // Limpar usuários
-      await pool.query('DELETE FROM users WHERE id = $1 OR id = $2', [adminUser?.id, regularUser?.id]);
+      if (adminUser?.id) {
+        await usersRepo.delete(adminUser.id);
+      }
+      if (regularUser?.id) {
+        await usersRepo.delete(regularUser.id);
+      }
 
       // Limpar arquivo de teste
       const testFilePath = path.join(__dirname, 'test-file.txt');
@@ -199,7 +233,7 @@ describe('Maintenance Attachment Routes', () => {
       const uploadDir = path.join(__dirname, '../uploads/maintenance-attachments');
       try {
         const files = await fs.readdir(uploadDir);
-        await Promise.all(files.map(file => 
+        await Promise.all(files.map(file =>
           fs.unlink(path.join(uploadDir, file)).catch(() => {})
         ));
       } catch (error) {
@@ -586,7 +620,7 @@ describe('Maintenance Attachment Routes', () => {
     // Nota: O teste de validação de tipo de arquivo .exe foi removido devido a problemas
     // de ECONNRESET com Supertest e Multer. A validação de tipo de arquivo está
     // implementada e funciona corretamente em produção através do fileFilter do Multer.
-    test.skip('Should reject unsupported file types', async () => {
+    test('Should reject unsupported file types', async () => {
       // Teste desabilitado temporariamente devido a limitações do Supertest com Multer
       // em condições de erro durante streaming de upload.
       // A funcionalidade está implementada e funciona corretamente.
@@ -611,7 +645,8 @@ describe('Maintenance Attachment Routes', () => {
     afterAll(async () => {
       // Limpar anexo do outro usuário
       if (otherUserAttachmentId) {
-        await pool.query('DELETE FROM maintenance_attachments WHERE id = $1', [otherUserAttachmentId]);
+        const { attachmentsRepository: attachmentsRepo } = getRepositories();
+        await attachmentsRepo.delete(otherUserAttachmentId);
       }
     });
 
@@ -655,3 +690,4 @@ describe('Maintenance Attachment Routes', () => {
     });
   });
 });
+

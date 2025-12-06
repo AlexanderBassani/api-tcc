@@ -1,8 +1,11 @@
-const pool = require('../config/database');
+const { AppDataSource } = require('../config/typeorm');
 const logger = require('../config/logger');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+
+const maintenanceAttachmentRepository = AppDataSource.getRepository('MaintenanceAttachment');
+const maintenanceRepository = AppDataSource.getRepository('Maintenance');
 
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
@@ -14,9 +17,9 @@ const storage = multer.diskStorage({
       await fs.access(uploadDir, fs.constants.W_OK);
       cb(null, uploadDir);
     } catch (error) {
-      logger.error('Error accessing upload directory', { 
-        uploadDir, 
-        error: error.message 
+      logger.error('Error accessing upload directory', {
+        uploadDir,
+        error: error.message
       });
       cb(error);
     }
@@ -34,13 +37,13 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     'image/jpeg',
-    'image/jpg', 
+    'image/jpg',
     'image/png',
     'image/gif',
     'application/pdf',
     'text/plain'
   ];
-  
+
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -62,41 +65,39 @@ const getMaintenanceAttachments = async (req, res) => {
   try {
     const { maintenanceId } = req.params;
     const userId = req.user.id;
-    
+
     // Verificar se a manutenção pertence ao usuário
-    const maintenanceCheck = await pool.query(
-      `SELECT m.id 
-       FROM maintenances m
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE m.id = $1 AND v.user_id = $2`,
-      [maintenanceId, userId]
-    );
-    
-    if (maintenanceCheck.rows.length === 0) {
+    const maintenance = await maintenanceRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.vehicle', 'v')
+      .where('m.id = :maintenanceId', { maintenanceId })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['m.id'])
+      .getOne();
+
+    if (!maintenance) {
       return res.status(404).json({
         error: 'Manutenção não encontrada',
         message: 'Manutenção não existe ou não pertence ao usuário'
       });
     }
-    
-    const result = await pool.query(
-      `SELECT id, maintenance_id, file_name, file_path, file_type, file_size, uploaded_at
-       FROM maintenance_attachments
-       WHERE maintenance_id = $1
-       ORDER BY uploaded_at DESC`,
-      [maintenanceId]
-    );
-    
-    logger.info('Maintenance attachments retrieved', { 
+
+    const attachments = await maintenanceAttachmentRepository.find({
+      where: { maintenance_id: maintenanceId },
+      select: ['id', 'maintenance_id', 'file_name', 'file_path', 'file_type', 'file_size', 'uploaded_at'],
+      order: { uploaded_at: 'DESC' }
+    });
+
+    logger.info('Maintenance attachments retrieved', {
       maintenanceId,
       userId,
-      attachmentCount: result.rows.length
+      attachmentCount: attachments.length
     });
-    
+
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: attachments,
+      count: attachments.length
     });
   } catch (error) {
     logger.error('Error retrieving maintenance attachments', {
@@ -105,7 +106,7 @@ const getMaintenanceAttachments = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível buscar os anexos da manutenção'
@@ -118,31 +119,31 @@ const getAttachmentById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
-    const result = await pool.query(
-      `SELECT a.id, a.maintenance_id, a.file_name, a.file_path, a.file_type, a.file_size, a.uploaded_at
-       FROM maintenance_attachments a
-       INNER JOIN maintenances m ON a.maintenance_id = m.id
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE a.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
-    
-    if (result.rows.length === 0) {
+
+    const attachment = await maintenanceAttachmentRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.maintenance', 'm')
+      .innerJoin('m.vehicle', 'v')
+      .where('a.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['a.id', 'a.maintenance_id', 'a.file_name', 'a.file_path', 'a.file_type', 'a.file_size', 'a.uploaded_at'])
+      .getOne();
+
+    if (!attachment) {
       return res.status(404).json({
         error: 'Anexo não encontrado',
         message: 'Anexo não existe ou não pertence ao usuário'
       });
     }
-    
-    logger.info('Attachment retrieved by ID', { 
+
+    logger.info('Attachment retrieved by ID', {
       attachmentId: id,
-      userId 
+      userId
     });
-    
+
     res.json({
       success: true,
-      data: result.rows[0]
+      data: attachment
     });
   } catch (error) {
     logger.error('Error retrieving attachment by ID', {
@@ -151,7 +152,7 @@ const getAttachmentById = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível buscar o anexo'
@@ -165,60 +166,55 @@ const uploadAttachments = async (req, res) => {
     const { maintenanceId } = req.params;
     const userId = req.user.id;
     const files = req.files;
-    
+
     if (!files || files.length === 0) {
       return res.status(400).json({
         error: 'Nenhum arquivo fornecido',
         message: 'É necessário enviar pelo menos um arquivo'
       });
     }
-    
+
     // Verificar se a manutenção pertence ao usuário
-    const maintenanceCheck = await pool.query(
-      `SELECT m.id 
-       FROM maintenances m
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE m.id = $1 AND v.user_id = $2`,
-      [maintenanceId, userId]
-    );
-    
-    if (maintenanceCheck.rows.length === 0) {
+    const maintenance = await maintenanceRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.vehicle', 'v')
+      .where('m.id = :maintenanceId', { maintenanceId })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['m.id'])
+      .getOne();
+
+    if (!maintenance) {
       // Remover arquivos já enviados se manutenção não existe
-      await Promise.all(files.map(file => fs.unlink(file.path).catch(() => {})));
+      await Promise.all(files.map(file => fs.unlink(file.path).catch(() => { })));
       return res.status(404).json({
         error: 'Manutenção não encontrada',
         message: 'Manutenção não existe ou não pertence ao usuário'
       });
     }
-    
+
     // Inserir registros dos arquivos no banco
     const attachments = [];
-    
+
     for (const file of files) {
-      const result = await pool.query(
-        `INSERT INTO maintenance_attachments (
-          maintenance_id, file_name, file_path, file_type, file_size, uploaded_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING *`,
-        [
-          maintenanceId,
-          file.originalname,
-          file.path,
-          file.mimetype,
-          file.size
-        ]
-      );
-      
-      attachments.push(result.rows[0]);
+      const attachment = maintenanceAttachmentRepository.create({
+        maintenance_id: maintenanceId,
+        file_name: file.originalname,
+        file_path: file.path,
+        file_type: file.mimetype,
+        file_size: file.size
+      });
+
+      const saved = await maintenanceAttachmentRepository.save(attachment);
+      attachments.push(saved);
     }
-    
-    logger.info('Attachments uploaded', { 
+
+    logger.info('Attachments uploaded', {
       maintenanceId,
       userId,
       fileCount: files.length,
       attachmentIds: attachments.map(a => a.id)
     });
-    
+
     res.status(201).json({
       success: true,
       message: `${files.length} arquivo(s) enviado(s) com sucesso`,
@@ -231,12 +227,12 @@ const uploadAttachments = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     // Tentar remover arquivos em caso de erro
     if (req.files) {
-      await Promise.all(req.files.map(file => fs.unlink(file.path).catch(() => {})));
+      await Promise.all(req.files.map(file => fs.unlink(file.path).catch(() => { })));
     }
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível fazer upload dos arquivos'
@@ -249,25 +245,23 @@ const downloadAttachment = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
-    const result = await pool.query(
-      `SELECT a.id, a.maintenance_id, a.file_name, a.file_path, a.file_type, a.file_size
-       FROM maintenance_attachments a
-       INNER JOIN maintenances m ON a.maintenance_id = m.id
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE a.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
-    
-    if (result.rows.length === 0) {
+
+    const attachment = await maintenanceAttachmentRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.maintenance', 'm')
+      .innerJoin('m.vehicle', 'v')
+      .where('a.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['a.id', 'a.maintenance_id', 'a.file_name', 'a.file_path', 'a.file_type', 'a.file_size'])
+      .getOne();
+
+    if (!attachment) {
       return res.status(404).json({
         error: 'Anexo não encontrado',
         message: 'Anexo não existe ou não pertence ao usuário'
       });
     }
-    
-    const attachment = result.rows[0];
-    
+
     try {
       await fs.access(attachment.file_path);
     } catch {
@@ -276,18 +270,18 @@ const downloadAttachment = async (req, res) => {
         message: 'O arquivo não existe no sistema de arquivos'
       });
     }
-    
+
     // Definir headers para download
     res.setHeader('Content-Disposition', `attachment; filename="${attachment.file_name}"`);
     res.setHeader('Content-Type', attachment.file_type);
     res.setHeader('Content-Length', attachment.file_size);
-    
-    logger.info('Attachment downloaded', { 
+
+    logger.info('Attachment downloaded', {
       attachmentId: id,
       userId,
       fileName: attachment.file_name
     });
-    
+
     // Enviar arquivo
     res.sendFile(path.resolve(attachment.file_path));
   } catch (error) {
@@ -297,7 +291,7 @@ const downloadAttachment = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível baixar o arquivo'
@@ -310,29 +304,27 @@ const deleteAttachment = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
+
     // Buscar anexo e verificar permissão
-    const result = await pool.query(
-      `SELECT a.id, a.file_path, a.file_name
-       FROM maintenance_attachments a
-       INNER JOIN maintenances m ON a.maintenance_id = m.id
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE a.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
-    
-    if (result.rows.length === 0) {
+    const attachment = await maintenanceAttachmentRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.maintenance', 'm')
+      .innerJoin('m.vehicle', 'v')
+      .where('a.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['a.id', 'a.file_path', 'a.file_name'])
+      .getOne();
+
+    if (!attachment) {
       return res.status(404).json({
         error: 'Anexo não encontrado',
         message: 'Anexo não existe ou não pertence ao usuário'
       });
     }
-    
-    const attachment = result.rows[0];
-    
+
     // Excluir do banco de dados
-    await pool.query('DELETE FROM maintenance_attachments WHERE id = $1', [id]);
-    
+    await maintenanceAttachmentRepository.delete(id);
+
     // Tentar remover arquivo do sistema de arquivos
     try {
       await fs.unlink(attachment.file_path);
@@ -343,13 +335,13 @@ const deleteAttachment = async (req, res) => {
         error: fileError.message
       });
     }
-    
-    logger.info('Attachment deleted', { 
+
+    logger.info('Attachment deleted', {
       attachmentId: id,
       userId,
       fileName: attachment.file_name
     });
-    
+
     res.json({
       success: true,
       message: 'Anexo excluído com sucesso'
@@ -361,7 +353,7 @@ const deleteAttachment = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível excluir o anexo'
@@ -375,48 +367,49 @@ const updateAttachment = async (req, res) => {
     const { id } = req.params;
     const { file_name } = req.body;
     const userId = req.user.id;
-    
+
     if (!file_name || !file_name.trim()) {
       return res.status(400).json({
         error: 'Nome do arquivo é obrigatório',
         message: 'É necessário fornecer um nome válido para o arquivo'
       });
     }
-    
+
     // Verificar se anexo pertence ao usuário
-    const attachmentCheck = await pool.query(
-      `SELECT a.id 
-       FROM maintenance_attachments a
-       INNER JOIN maintenances m ON a.maintenance_id = m.id
-       INNER JOIN vehicles v ON m.vehicle_id = v.id
-       WHERE a.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
-    
-    if (attachmentCheck.rows.length === 0) {
+    const attachment = await maintenanceAttachmentRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.maintenance', 'm')
+      .innerJoin('m.vehicle', 'v')
+      .where('a.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['a.id'])
+      .getOne();
+
+    if (!attachment) {
       return res.status(404).json({
         error: 'Anexo não encontrado',
         message: 'Anexo não existe ou não pertence ao usuário'
       });
     }
-    
-    const result = await pool.query(
-      `UPDATE maintenance_attachments SET file_name = $1
-       WHERE id = $2
-       RETURNING *`,
-      [file_name.trim(), id]
-    );
-    
-    logger.info('Attachment updated', { 
+
+    await maintenanceAttachmentRepository.update(id, {
+      file_name: file_name.trim()
+    });
+
+    const updatedAttachment = await maintenanceAttachmentRepository.findOne({
+      where: { id }
+    });
+
+    logger.info('Attachment updated', {
       attachmentId: id,
       userId,
       newFileName: file_name
     });
-    
+
     res.json({
       success: true,
       message: 'Nome do anexo atualizado com sucesso',
-      data: result.rows[0]
+      data: updatedAttachment
     });
   } catch (error) {
     logger.error('Error updating attachment', {
@@ -425,7 +418,7 @@ const updateAttachment = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    
+
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível atualizar o anexo'

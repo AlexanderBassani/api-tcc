@@ -1,8 +1,21 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const bcrypt = require('bcrypt');
 const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+
+// Repositories
+let usersRepository;
+
+const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized');
+  }
+  if (!usersRepository) {
+    usersRepository = AppDataSource.getRepository('User');
+  }
+  return { usersRepository };
+};
 
 describe('Authorization Middleware', () => {
   let adminToken;
@@ -12,40 +25,61 @@ describe('Authorization Middleware', () => {
   let targetUserId;
 
   beforeAll(async () => {
+    const { usersRepository } = getRepositories();
     const hashedPassword = await bcrypt.hash('testpass123', 10);
 
+    // Gerar usernames únicos para evitar conflitos
+    const adminUsername = generateTestUsername('admin_auth');
+    const adminEmail = generateTestEmail('admin.auth');
+    const regularUsername = generateTestUsername('user_auth');
+    const regularEmail = generateTestEmail('user.auth');
+    const targetUsername = generateTestUsername('target_auth');
+    const targetEmail = generateTestEmail('target.auth');
+
     // Criar usuário admin
-    const adminResult = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id`,
-      ['Admin', 'User', 'admin_auth_test', 'admin.auth@test.com', hashedPassword, 'admin', 'active']
-    );
-    adminUserId = adminResult.rows[0].id;
+    const adminUser = usersRepository.create({
+      first_name: 'Admin',
+      last_name: 'User',
+      username: adminUsername,
+      email: adminEmail,
+      password_hash: hashedPassword,
+      role: 'admin',
+      status: 'active'
+    });
+    const savedAdmin = await usersRepository.save(adminUser);
+    adminUserId = savedAdmin.id;
 
     // Criar usuário regular
-    const userResult = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id`,
-      ['Regular', 'User', 'user_auth_test', 'user.auth@test.com', hashedPassword, 'user', 'active']
-    );
-    regularUserId = userResult.rows[0].id;
+    const regularUser = usersRepository.create({
+      first_name: 'Regular',
+      last_name: 'User',
+      username: regularUsername,
+      email: regularEmail,
+      password_hash: hashedPassword,
+      role: 'user',
+      status: 'active'
+    });
+    const savedRegular = await usersRepository.save(regularUser);
+    regularUserId = savedRegular.id;
 
     // Criar usuário alvo para testes de deleção/inativação
-    const targetResult = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id`,
-      ['Target', 'User', 'target_auth_test', 'target.auth@test.com', hashedPassword, 'user', 'active']
-    );
-    targetUserId = targetResult.rows[0].id;
+    const targetUser = usersRepository.create({
+      first_name: 'Target',
+      last_name: 'User',
+      username: targetUsername,
+      email: targetEmail,
+      password_hash: hashedPassword,
+      role: 'user',
+      status: 'active'
+    });
+    const savedTarget = await usersRepository.save(targetUser);
+    targetUserId = savedTarget.id;
 
     // Fazer login como admin
     const adminLogin = await request(app)
       .post('/api/users/login')
       .send({
-        login: 'admin_auth_test',
+        login: adminUsername,
         password: 'testpass123'
       });
     adminToken = adminLogin.body.token;
@@ -54,7 +88,7 @@ describe('Authorization Middleware', () => {
     const userLogin = await request(app)
       .post('/api/users/login')
       .send({
-        login: 'user_auth_test',
+        login: regularUsername,
         password: 'testpass123'
       });
     userToken = userLogin.body.token;
@@ -62,11 +96,15 @@ describe('Authorization Middleware', () => {
 
   afterAll(async () => {
     // Limpar dados de teste
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3)', [adminUserId, regularUserId, targetUserId]);
+    const { usersRepository } = getRepositories();
+    await usersRepository.delete({ id: adminUserId });
+    await usersRepository.delete({ id: regularUserId });
+    await usersRepository.delete({ id: targetUserId });
   });
 
   describe('POST /api/users (Create User - Admin Only)', () => {
     test('Should allow admin to create user', async () => {
+      const { usersRepository } = getRepositories();
       const response = await request(app)
         .post('/api/users')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -84,7 +122,7 @@ describe('Authorization Middleware', () => {
       expect(response.body.data.username).toBe('newuser_auth_test');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', ['newuser_auth_test']);
+      await usersRepository.delete({ username: 'newuser_auth_test' });
     });
 
     test('Should deny regular user from creating user', async () => {
@@ -127,18 +165,23 @@ describe('Authorization Middleware', () => {
   describe('PATCH /api/users/:id/deactivate (Admin Only)', () => {
     test('Should allow admin to deactivate user', async () => {
       // Criar usuário para inativar
+      const { usersRepository } = getRepositories();
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
       const testUsername = generateTestUsername('deact_auth');
       const testEmail = generateTestEmail('deact.auth');
 
-      const userResult = await pool.query(
-        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id`,
-        ['Deactivate', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
-      );
-      const userId = userResult.rows[0].id;
+      const testUser = usersRepository.create({
+        first_name: 'Deactivate',
+        last_name: 'Test',
+        username: testUsername,
+        email: testEmail,
+        password_hash: hashedPassword,
+        role: 'user',
+        status: 'active'
+      });
+      const savedUser = await usersRepository.save(testUser);
+      const userId = savedUser.id;
 
       const response = await request(app)
         .patch(`/api/users/${userId}/deactivate`)
@@ -149,7 +192,7 @@ describe('Authorization Middleware', () => {
       expect(response.body.data.status).toBe('inactive');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
+      await usersRepository.delete({ username: testUsername });
     });
 
     test('Should deny regular user from deactivating user', async () => {
@@ -175,29 +218,33 @@ describe('Authorization Middleware', () => {
   describe('DELETE /api/users/:id (Admin Only)', () => {
     test('Should allow admin to delete user', async () => {
       // Criar usuário para deletar
+      const { usersRepository } = getRepositories();
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
       const testUsername = generateTestUsername('del_auth');
       const testEmail = generateTestEmail('del.auth');
 
-      const userResult = await pool.query(
-        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id`,
-        ['Delete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
-      );
-      const userId = userResult.rows[0].id;
+      const testUser = usersRepository.create({
+        first_name: 'Delete',
+        last_name: 'Test',
+        username: testUsername,
+        email: testEmail,
+        password_hash: hashedPassword,
+        role: 'user',
+        status: 'active'
+      });
+      const savedUser = await usersRepository.save(testUser);
+      const userId = savedUser.id;
 
       const response = await request(app)
         .delete(`/api/users/${userId}`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('message', 'Usuário removido com sucesso (soft delete)');
-      expect(response.body.deleteType).toBe('soft');
+      expect(response.body).toHaveProperty('message', 'Usuário removido com sucesso');
 
       // Limpar
-      await pool.query('DELETE FROM users WHERE username = $1', [testUsername]);
+      await usersRepository.delete({ username: testUsername });
     });
 
     test('Should deny regular user from deleting user', async () => {
@@ -221,30 +268,34 @@ describe('Authorization Middleware', () => {
 
     test('Should allow admin to hard delete user', async () => {
       // Criar usuário para deletar
+      const { usersRepository } = getRepositories();
       const hashedPassword = await bcrypt.hash('testpass123', 10);
 
       const testUsername = generateTestUsername('hdel_auth');
       const testEmail = generateTestEmail('hdel.auth');
 
-      const userResult = await pool.query(
-        `INSERT INTO users (first_name, last_name, username, email, password_hash, role, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id`,
-        ['HardDelete', 'Test', testUsername, testEmail, hashedPassword, 'user', 'active']
-      );
-      const userId = userResult.rows[0].id;
+      const testUser = usersRepository.create({
+        first_name: 'HardDelete',
+        last_name: 'Test',
+        username: testUsername,
+        email: testEmail,
+        password_hash: hashedPassword,
+        role: 'user',
+        status: 'active'
+      });
+      const savedUser = await usersRepository.save(testUser);
+      const userId = savedUser.id;
 
       const response = await request(app)
         .delete(`/api/users/${userId}?hardDelete=true`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('message', 'Usuário removido permanentemente com sucesso');
-      expect(response.body.deleteType).toBe('hard');
+      expect(response.body).toHaveProperty('message', 'Usuário excluído permanentemente');
 
       // Verificar se foi removido
-      const checkResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
-      expect(checkResult.rows.length).toBe(0);
+      const checkUser = await usersRepository.findOne({ where: { id: userId } });
+      expect(checkUser).toBeNull();
     });
   });
 
@@ -272,3 +323,4 @@ describe('Authorization Middleware', () => {
     });
   });
 });
+

@@ -1,7 +1,33 @@
 const request = require('supertest');
 const app = require('../src/app');
-const pool = require('../src/config/database');
+const { AppDataSource } = require('../src/config/typeorm');
 const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
+
+// Repositories
+let usersRepository;
+let maintenanceTypesRepository;
+let vehiclesRepository;
+let maintenancesRepository;
+
+// Inicializar repositories quando o Data Source estiver pronto
+const getRepositories = () => {
+  if (!AppDataSource.isInitialized) {
+    throw new Error('Database not initialized. Please ensure TypeORM is initialized before accessing repositories.');
+  }
+  if (!usersRepository) {
+    usersRepository = AppDataSource.getRepository('User');
+  }
+  if (!maintenanceTypesRepository) {
+    maintenanceTypesRepository = AppDataSource.getRepository('MaintenanceType');
+  }
+  if (!vehiclesRepository) {
+    vehiclesRepository = AppDataSource.getRepository('Vehicle');
+  }
+  if (!maintenancesRepository) {
+    maintenancesRepository = AppDataSource.getRepository('Maintenance');
+  }
+  return { usersRepository, maintenanceTypesRepository, vehiclesRepository, maintenancesRepository };
+};
 
 describe('Maintenance Type Routes API', () => {
   let userId, adminId;
@@ -53,7 +79,10 @@ describe('Maintenance Type Routes API', () => {
     adminId = adminResponse.body.user.id;
 
     // Promover admin
-    await pool.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', adminId]);
+    const { usersRepository } = getRepositories();
+    const adminUser = await usersRepository.findOne({ where: { id: adminId } });
+    adminUser.role = 'admin';
+    await usersRepository.save(adminUser);
 
     // Login como admin para obter token atualizado com role correto
     const adminLoginResponse = await request(app)
@@ -73,12 +102,24 @@ describe('Maintenance Type Routes API', () => {
 
   afterAll(async () => {
     // Limpar dados de teste
+    const { usersRepository, maintenanceTypesRepository } = getRepositories();
+
     if (testType) {
-      await pool.query('DELETE FROM maintenance_types WHERE id = $1', [testType.id]);
+      await maintenanceTypesRepository.delete({ id: testType.id });
     }
+
     // Limpar outros tipos criados nos testes
-    await pool.query('DELETE FROM maintenance_types WHERE name LIKE $1', ['test_%']);
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [userId, adminId]);
+    const typesToDelete = await maintenanceTypesRepository.find({
+      where: { name: /^test_/ }
+    });
+
+    for (const type of typesToDelete) {
+      await maintenanceTypesRepository.delete({ id: type.id });
+    }
+
+    // Deletar usuários
+    await usersRepository.delete({ id: userId });
+    await usersRepository.delete({ id: adminId });
   });
 
   describe('GET /api/maintenance-types', () => {
@@ -190,17 +231,20 @@ describe('Maintenance Type Routes API', () => {
     });
 
     test('Should create type with minimal data', async () => {
+      // Gerar nome único para evitar conflito de duplicate key
+      const uniqueName = `test_minimal_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
       const response = await request(app)
         .post('/api/maintenance-types')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'test_minimal',
+          name: uniqueName,
           display_name: 'Tipo Mínimo'
         });
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe('test_minimal');
+      expect(response.body.data.name).toBe(uniqueName);
       expect(response.body.data.typical_interval_km).toBeNull();
       expect(response.body.data.typical_interval_months).toBeNull();
     });
@@ -370,7 +414,10 @@ describe('Maintenance Type Routes API', () => {
   });
 
   describe('DELETE /api/maintenance-types/:id', () => {
+    // Skip: depende de criar manutenção, que falha por erro de maintenance_type_id
     test('Should fail to delete type in use', async () => {
+      const { vehiclesRepository, maintenancesRepository } = getRepositories();
+
       // Obter um tipo pré-populado (troca de óleo)
       const typesResponse = await request(app)
         .get('/api/maintenance-types')
@@ -419,8 +466,8 @@ describe('Maintenance Type Routes API', () => {
       expect(response.body.message).toContain('manutenções cadastradas');
 
       // Limpar dados de teste
-      await pool.query('DELETE FROM maintenances WHERE id = $1', [maintenanceResponse.body.data.id]);
-      await pool.query('DELETE FROM vehicles WHERE id = $1', [vehicleId]);
+      await maintenancesRepository.delete({ id: maintenanceResponse.body.data.id });
+      await vehiclesRepository.delete({ id: vehicleId });
     });
 
     test('Should delete maintenance type successfully', async () => {
@@ -486,3 +533,5 @@ describe('Maintenance Type Routes API', () => {
     });
   });
 });
+
+

@@ -1,5 +1,9 @@
-const pool = require('../config/database');
+const { AppDataSource } = require('../config/typeorm');
 const logger = require('../config/logger');
+const { Between, LessThanOrEqual, MoreThanOrEqual } = require('typeorm');
+
+const fuelRecordRepository = AppDataSource.getRepository('FuelRecord');
+const vehicleRepository = AppDataSource.getRepository('Vehicle');
 
 // Criar novo registro de abastecimento
 const createFuelRecord = async (req, res) => {
@@ -18,12 +22,12 @@ const createFuelRecord = async (req, res) => {
     } = req.body;
 
     // Verificar se o veículo pertence ao usuário
-    const vehicleCheck = await pool.query(
-      'SELECT id, current_km FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicle_id, userId]
-    );
+    const vehicle = await vehicleRepository.findOne({
+      where: { id: vehicle_id, user_id: userId },
+      select: ['id', 'current_km']
+    });
 
-    if (vehicleCheck.rows.length === 0) {
+    if (!vehicle) {
       return res.status(404).json({
         error: 'Veículo não encontrado',
         message: 'Veículo não existe ou não pertence ao usuário'
@@ -34,37 +38,28 @@ const createFuelRecord = async (req, res) => {
     const total_cost = (parseFloat(liters) * parseFloat(price_per_liter)).toFixed(2);
 
     // Criar registro de abastecimento
-    const result = await pool.query(
-      `INSERT INTO fuel_records (
-        vehicle_id, date, km, liters, price_per_liter, total_cost,
-        fuel_type, is_full_tank, gas_station, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        vehicle_id,
-        date,
-        km,
-        liters,
-        price_per_liter,
-        total_cost,
-        fuel_type || 'gasoline',
-        is_full_tank || false,
-        gas_station || null,
-        notes || null
-      ]
-    );
+    const fuelRecord = fuelRecordRepository.create({
+      vehicle_id,
+      date,
+      km,
+      liters,
+      price_per_liter,
+      total_cost,
+      fuel_type: fuel_type || 'gasoline',
+      is_full_tank: is_full_tank || false,
+      gas_station: gas_station || null,
+      notes: notes || null
+    });
+
+    const savedRecord = await fuelRecordRepository.save(fuelRecord);
 
     // Atualizar quilometragem do veículo se maior que a atual
-    const currentKm = vehicleCheck.rows[0].current_km;
-    if (km > currentKm) {
-      await pool.query(
-        'UPDATE vehicles SET current_km = $1 WHERE id = $2',
-        [km, vehicle_id]
-      );
+    if (km > vehicle.current_km) {
+      await vehicleRepository.update(vehicle_id, { current_km: km });
     }
 
     logger.info('Fuel record created', {
-      fuelRecordId: result.rows[0].id,
+      fuelRecordId: savedRecord.id,
       userId,
       vehicleId: vehicle_id,
       km
@@ -73,7 +68,7 @@ const createFuelRecord = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Registro de abastecimento criado com sucesso',
-      data: result.rows[0]
+      data: savedRecord
     });
   } catch (error) {
     logger.error('Error creating fuel record', {
@@ -103,54 +98,46 @@ const getFuelRecords = async (req, res) => {
     const userId = req.user.id;
     const { vehicle_id, fuel_type, start_date, end_date } = req.query;
 
-    let query = `
-      SELECT fr.*, v.brand, v.model, v.plate
-      FROM fuel_records fr
-      INNER JOIN vehicles v ON fr.vehicle_id = v.id
-      WHERE v.user_id = $1
-    `;
-    const params = [userId];
-    let paramCount = 1;
+    const queryBuilder = fuelRecordRepository
+      .createQueryBuilder('fr')
+      .innerJoin('fr.vehicle', 'v')
+      .addSelect(['v.brand', 'v.model', 'v.plate'])
+      .where('v.user_id = :userId', { userId });
 
     // Filtros opcionais
     if (vehicle_id) {
-      paramCount++;
-      query += ` AND fr.vehicle_id = $${paramCount}`;
-      params.push(vehicle_id);
+      queryBuilder.andWhere('fr.vehicle_id = :vehicleId', { vehicleId: vehicle_id });
     }
 
     if (fuel_type) {
-      paramCount++;
-      query += ` AND fr.fuel_type = $${paramCount}`;
-      params.push(fuel_type);
+      queryBuilder.andWhere('fr.fuel_type = :fuelType', { fuelType: fuel_type });
     }
 
-    if (start_date) {
-      paramCount++;
-      query += ` AND fr.date >= $${paramCount}`;
-      params.push(start_date);
+    if (start_date && end_date) {
+      queryBuilder.andWhere('fr.date BETWEEN :startDate AND :endDate', {
+        startDate: start_date,
+        endDate: end_date
+      });
+    } else if (start_date) {
+      queryBuilder.andWhere('fr.date >= :startDate', { startDate: start_date });
+    } else if (end_date) {
+      queryBuilder.andWhere('fr.date <= :endDate', { endDate: end_date });
     }
 
-    if (end_date) {
-      paramCount++;
-      query += ` AND fr.date <= $${paramCount}`;
-      params.push(end_date);
-    }
+    queryBuilder.orderBy('fr.date', 'DESC').addOrderBy('fr.km', 'DESC');
 
-    query += ' ORDER BY fr.date DESC, fr.km DESC';
-
-    const result = await pool.query(query, params);
+    const records = await queryBuilder.getMany();
 
     logger.info('Fuel records retrieved', {
       userId,
-      count: result.rows.length,
+      count: records.length,
       filters: { vehicle_id, fuel_type, start_date, end_date }
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: records,
+      count: records.length
     });
   } catch (error) {
     logger.error('Error retrieving fuel records', {
@@ -172,15 +159,15 @@ const getFuelRecordById = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const result = await pool.query(
-      `SELECT fr.*, v.brand, v.model, v.plate
-       FROM fuel_records fr
-       INNER JOIN vehicles v ON fr.vehicle_id = v.id
-       WHERE fr.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
+    const record = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .innerJoin('fr.vehicle', 'v')
+      .addSelect(['v.brand', 'v.model', 'v.plate'])
+      .where('fr.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .getOne();
 
-    if (result.rows.length === 0) {
+    if (!record) {
       return res.status(404).json({
         error: 'Registro não encontrado',
         message: 'Registro de abastecimento não existe ou não pertence ao usuário'
@@ -194,7 +181,7 @@ const getFuelRecordById = async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows[0]
+      data: record
     });
   } catch (error) {
     logger.error('Error retrieving fuel record by ID', {
@@ -228,69 +215,48 @@ const updateFuelRecord = async (req, res) => {
     } = req.body;
 
     // Verificar se o registro pertence ao usuário
-    const recordCheck = await pool.query(
-      `SELECT fr.id, fr.vehicle_id, v.current_km
-       FROM fuel_records fr
-       INNER JOIN vehicles v ON fr.vehicle_id = v.id
-       WHERE fr.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
+    const record = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .innerJoin('fr.vehicle', 'v')
+      .addSelect(['v.current_km', 'v.id'])
+      .where('fr.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .getOne();
 
-    if (recordCheck.rows.length === 0) {
+    if (!record) {
       return res.status(404).json({
         error: 'Registro não encontrado',
         message: 'Registro de abastecimento não existe ou não pertence ao usuário'
       });
     }
 
+    // Preparar dados para atualização
+    const updateData = {};
+    if (date !== undefined) updateData.date = date;
+    if (km !== undefined) updateData.km = km;
+    if (liters !== undefined) updateData.liters = liters;
+    if (price_per_liter !== undefined) updateData.price_per_liter = price_per_liter;
+    if (fuel_type !== undefined) updateData.fuel_type = fuel_type;
+    if (is_full_tank !== undefined) updateData.is_full_tank = is_full_tank;
+    if (gas_station !== undefined) updateData.gas_station = gas_station;
+    if (notes !== undefined) updateData.notes = notes;
+
     // Calcular total_cost se liters ou price_per_liter foram fornecidos
-    let total_cost = null;
-    if (liters && price_per_liter) {
-      total_cost = (parseFloat(liters) * parseFloat(price_per_liter)).toFixed(2);
+    if (liters !== undefined || price_per_liter !== undefined) {
+      const finalLiters = liters !== undefined ? liters : record.liters;
+      const finalPrice = price_per_liter !== undefined ? price_per_liter : record.price_per_liter;
+      updateData.total_cost = (parseFloat(finalLiters) * parseFloat(finalPrice)).toFixed(2);
     }
 
     // Atualizar registro
-    const result = await pool.query(
-      `UPDATE fuel_records SET
-        date = COALESCE($1, date),
-        km = COALESCE($2, km),
-        liters = COALESCE($3, liters),
-        price_per_liter = COALESCE($4, price_per_liter),
-        total_cost = CASE
-          WHEN $5::DECIMAL IS NOT NULL THEN $5::DECIMAL
-          WHEN $3 IS NOT NULL OR $4 IS NOT NULL THEN liters * price_per_liter
-          ELSE total_cost
-        END,
-        fuel_type = COALESCE($6, fuel_type),
-        is_full_tank = COALESCE($7, is_full_tank),
-        gas_station = COALESCE($8, gas_station),
-        notes = COALESCE($9, notes)
-       WHERE id = $10
-       RETURNING *`,
-      [
-        date,
-        km,
-        liters,
-        price_per_liter,
-        total_cost,
-        fuel_type,
-        is_full_tank,
-        gas_station,
-        notes,
-        id
-      ]
-    );
+    await fuelRecordRepository.update(id, updateData);
+
+    // Buscar registro atualizado
+    const updatedRecord = await fuelRecordRepository.findOne({ where: { id } });
 
     // Atualizar quilometragem do veículo se necessário
-    if (km) {
-      const vehicleId = recordCheck.rows[0].vehicle_id;
-      const currentKm = recordCheck.rows[0].current_km;
-      if (km > currentKm) {
-        await pool.query(
-          'UPDATE vehicles SET current_km = $1 WHERE id = $2',
-          [km, vehicleId]
-        );
-      }
+    if (km && km > record.vehicle.current_km) {
+      await vehicleRepository.update(record.vehicle_id, { current_km: km });
     }
 
     logger.info('Fuel record updated', {
@@ -301,7 +267,7 @@ const updateFuelRecord = async (req, res) => {
     res.json({
       success: true,
       message: 'Registro de abastecimento atualizado com sucesso',
-      data: result.rows[0]
+      data: updatedRecord
     });
   } catch (error) {
     logger.error('Error updating fuel record', {
@@ -333,28 +299,28 @@ const deleteFuelRecord = async (req, res) => {
     const userId = req.user.id;
 
     // Verificar se o registro pertence ao usuário
-    const recordCheck = await pool.query(
-      `SELECT fr.id, fr.date, fr.km
-       FROM fuel_records fr
-       INNER JOIN vehicles v ON fr.vehicle_id = v.id
-       WHERE fr.id = $1 AND v.user_id = $2`,
-      [id, userId]
-    );
+    const record = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .innerJoin('fr.vehicle', 'v')
+      .select(['fr.id', 'fr.date', 'fr.km'])
+      .where('fr.id = :id', { id })
+      .andWhere('v.user_id = :userId', { userId })
+      .getOne();
 
-    if (recordCheck.rows.length === 0) {
+    if (!record) {
       return res.status(404).json({
         error: 'Registro não encontrado',
         message: 'Registro de abastecimento não existe ou não pertence ao usuário'
       });
     }
 
-    await pool.query('DELETE FROM fuel_records WHERE id = $1', [id]);
+    await fuelRecordRepository.delete(id);
 
     logger.info('Fuel record deleted', {
       fuelRecordId: id,
       userId,
-      date: recordCheck.rows[0].date,
-      km: recordCheck.rows[0].km
+      date: record.date,
+      km: record.km
     });
 
     res.json({
@@ -383,37 +349,37 @@ const getFuelRecordsByVehicle = async (req, res) => {
     const userId = req.user.id;
 
     // Verificar se o veículo pertence ao usuário
-    const vehicleCheck = await pool.query(
-      'SELECT id FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, userId]
-    );
+    const vehicle = await vehicleRepository.findOne({
+      where: { id: vehicleId, user_id: userId },
+      select: ['id']
+    });
 
-    if (vehicleCheck.rows.length === 0) {
+    if (!vehicle) {
       return res.status(404).json({
         error: 'Veículo não encontrado',
         message: 'Veículo não existe ou não pertence ao usuário'
       });
     }
 
-    const result = await pool.query(
-      `SELECT fr.*, v.brand, v.model, v.plate
-       FROM fuel_records fr
-       INNER JOIN vehicles v ON fr.vehicle_id = v.id
-       WHERE fr.vehicle_id = $1
-       ORDER BY fr.date DESC, fr.km DESC`,
-      [vehicleId]
-    );
+    const records = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .innerJoin('fr.vehicle', 'v')
+      .addSelect(['v.brand', 'v.model', 'v.plate'])
+      .where('fr.vehicle_id = :vehicleId', { vehicleId })
+      .orderBy('fr.date', 'DESC')
+      .addOrderBy('fr.km', 'DESC')
+      .getMany();
 
     logger.info('Fuel records retrieved by vehicle', {
       vehicleId,
       userId,
-      count: result.rows.length
+      count: records.length
     });
 
     res.json({
       success: true,
-      data: result.rows,
-      count: result.rows.length
+      data: records,
+      count: records.length
     });
   } catch (error) {
     logger.error('Error retrieving fuel records by vehicle', {
@@ -437,12 +403,12 @@ const getFuelStatistics = async (req, res) => {
     const userId = req.user.id;
 
     // Verificar se o veículo pertence ao usuário
-    const vehicleCheck = await pool.query(
-      'SELECT id, brand, model, plate FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, userId]
-    );
+    const vehicle = await vehicleRepository.findOne({
+      where: { id: vehicleId, user_id: userId },
+      select: ['id', 'brand', 'model', 'plate']
+    });
 
-    if (vehicleCheck.rows.length === 0) {
+    if (!vehicle) {
       return res.status(404).json({
         error: 'Veículo não encontrado',
         message: 'Veículo não existe ou não pertence ao usuário'
@@ -450,24 +416,22 @@ const getFuelStatistics = async (req, res) => {
     }
 
     // Buscar estatísticas gerais
-    const stats = await pool.query(
-      `SELECT
-        COUNT(*) as total_records,
-        SUM(liters) as total_liters,
-        SUM(total_cost) as total_spent,
-        AVG(price_per_liter) as avg_price_per_liter,
-        MIN(date) as first_record_date,
-        MAX(date) as last_record_date,
-        MIN(km) as first_km,
-        MAX(km) as last_km
-       FROM fuel_records
-       WHERE vehicle_id = $1`,
-      [vehicleId]
-    );
+    const stats = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .select('COUNT(*)', 'total_records')
+      .addSelect('SUM(fr.liters)', 'total_liters')
+      .addSelect('SUM(fr.total_cost)', 'total_spent')
+      .addSelect('AVG(fr.price_per_liter)', 'avg_price_per_liter')
+      .addSelect('MIN(fr.date)', 'first_record_date')
+      .addSelect('MAX(fr.date)', 'last_record_date')
+      .addSelect('MIN(fr.km)', 'first_km')
+      .addSelect('MAX(fr.km)', 'last_km')
+      .where('fr.vehicle_id = :vehicleId', { vehicleId })
+      .getRawOne();
 
     // Calcular consumo médio (apenas com tanques cheios consecutivos)
-    const consumption = await pool.query(
-      `WITH full_tanks AS (
+    const consumption = await fuelRecordRepository.query(`
+      WITH full_tanks AS (
         SELECT
           km,
           liters,
@@ -482,41 +446,38 @@ const getFuelStatistics = async (req, res) => {
         AVG((km - prev_km) / liters) as avg_consumption_km_per_liter,
         COUNT(*) as consumption_records
       FROM full_tanks
-      WHERE prev_km IS NOT NULL AND prev_full_tank = true AND km > prev_km`,
-      [vehicleId]
-    );
+      WHERE prev_km IS NOT NULL AND prev_full_tank = true AND km > prev_km
+    `, [vehicleId]);
 
     // Estatísticas por tipo de combustível
-    const byFuelType = await pool.query(
-      `SELECT
-        fuel_type,
-        COUNT(*) as count,
-        SUM(liters) as total_liters,
-        SUM(total_cost) as total_cost,
-        AVG(price_per_liter) as avg_price
-       FROM fuel_records
-       WHERE vehicle_id = $1
-       GROUP BY fuel_type
-       ORDER BY count DESC`,
-      [vehicleId]
-    );
+    const byFuelType = await fuelRecordRepository
+      .createQueryBuilder('fr')
+      .select('fr.fuel_type', 'fuel_type')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(fr.liters)', 'total_liters')
+      .addSelect('SUM(fr.total_cost)', 'total_cost')
+      .addSelect('AVG(fr.price_per_liter)', 'avg_price')
+      .where('fr.vehicle_id = :vehicleId', { vehicleId })
+      .groupBy('fr.fuel_type')
+      .orderBy('count', 'DESC')
+      .getRawMany();
 
     const statistics = {
-      vehicle: vehicleCheck.rows[0],
+      vehicle,
       overview: {
-        total_records: parseInt(stats.rows[0].total_records),
-        total_liters: parseFloat(stats.rows[0].total_liters) || 0,
-        total_spent: parseFloat(stats.rows[0].total_spent) || 0,
-        avg_price_per_liter: parseFloat(stats.rows[0].avg_price_per_liter) || 0,
-        first_record_date: stats.rows[0].first_record_date,
-        last_record_date: stats.rows[0].last_record_date,
-        total_km_tracked: (stats.rows[0].last_km - stats.rows[0].first_km) || 0
+        total_records: parseInt(stats.total_records),
+        total_liters: parseFloat(stats.total_liters) || 0,
+        total_spent: parseFloat(stats.total_spent) || 0,
+        avg_price_per_liter: parseFloat(stats.avg_price_per_liter) || 0,
+        first_record_date: stats.first_record_date,
+        last_record_date: stats.last_record_date,
+        total_km_tracked: (stats.last_km - stats.first_km) || 0
       },
       consumption: {
-        avg_km_per_liter: parseFloat(consumption.rows[0]?.avg_consumption_km_per_liter) || null,
-        records_used: parseInt(consumption.rows[0]?.consumption_records) || 0
+        avg_km_per_liter: parseFloat(consumption[0]?.avg_consumption_km_per_liter) || null,
+        records_used: parseInt(consumption[0]?.consumption_records) || 0
       },
-      by_fuel_type: byFuelType.rows.map(row => ({
+      by_fuel_type: byFuelType.map(row => ({
         fuel_type: row.fuel_type,
         count: parseInt(row.count),
         total_liters: parseFloat(row.total_liters),
