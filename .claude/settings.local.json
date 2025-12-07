@@ -36,7 +36,10 @@
       "Bash(npm --version)",
       "Bash(NODE_ENV=test node -e \"console.log(''Node funcionando''); const jest = require(''jest''); console.log(''Jest carregado'');\")",
       "Bash(npx jest:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm run migrate:status:*)",
+      "Bash(PGPASSWORD=password psql:*)",
+      "Bash(docker ps:*)"
     ],
     "deny": [],
     "ask": []
