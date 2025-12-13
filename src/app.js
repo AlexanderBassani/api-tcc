@@ -66,6 +66,16 @@ const app = express();
 // Export typeormReady promise for tests
 app.typeormReady = typeormReady;
 
+// Configurar trust proxy para ambientes de produção (Railway, Heroku, etc)
+// Isso permite que o Express confie em headers de proxy como X-Forwarded-For
+// Essencial para rate limiting e logging correto de IPs em produção
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Confia no primeiro proxy (Railway, Heroku, etc)
+} else if (process.env.TRUST_PROXY) {
+  // Permite configuração customizada via variável de ambiente
+  app.set('trust proxy', process.env.TRUST_PROXY);
+}
+
 // Configuração de segurança com Helmet
 app.use(helmet({
   // Content Security Policy - configurado para permitir Swagger UI
