@@ -846,6 +846,7 @@ A documentação completa da API está disponível através do Swagger UI:
 - `GET /api/maintenances/:id` - Buscar manutenção específica
 - `POST /api/maintenances` - Criar registro de manutenção
 - `PUT /api/maintenances/:id` - Atualizar registro de manutenção
+- `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
 - `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
 
@@ -856,6 +857,46 @@ A documentação completa da API está disponível através do Swagger UI:
 - `GET /api/maintenance-attachments/:id/download` - Download de anexo
 - `PUT /api/maintenance-attachments/:id` - Atualizar nome do anexo
 - `DELETE /api/maintenance-attachments/:id` - Excluir anexo
+
+**Tipos de arquivo permitidos:** JPEG, JPG, PNG, GIF, PDF, TXT
+**Tamanho máximo:** 10MB por arquivo
+**Upload múltiplo:** Até 5 arquivos por requisição
+
+### Tipos de Manutenção (Autenticados)
+- `GET /api/maintenance-types` - Listar todos os tipos de manutenção (com filtros: has_km_interval, has_month_interval)
+- `GET /api/maintenance-types/:id` - Buscar tipo específico
+- `POST /api/maintenance-types` - Criar novo tipo **(admin only)**
+- `PUT /api/maintenance-types/:id` - Atualizar tipo **(admin only)**
+- `DELETE /api/maintenance-types/:id` - Excluir tipo **(admin only)**
+
+### Prestadores de Serviço (Autenticados)
+- `GET /api/service-providers` - Listar prestadores (com filtros: type, is_favorite, min_rating)
+- `GET /api/service-providers/favorites` - Listar apenas favoritos
+- `GET /api/service-providers/type/:type` - Listar por tipo específico
+- `GET /api/service-providers/:id` - Buscar prestador específico
+- `POST /api/service-providers` - Criar novo prestador
+- `PUT /api/service-providers/:id` - Atualizar prestador
+- `DELETE /api/service-providers/:id` - Excluir prestador
+
+### Registros de Abastecimento (Autenticados)
+- `GET /api/fuel-records` - Listar registros (com filtros: vehicle_id, fuel_type, start_date, end_date)
+- `GET /api/fuel-records/vehicle/:vehicleId` - Listar registros de um veículo
+- `GET /api/fuel-records/vehicle/:vehicleId/statistics` - Estatísticas de consumo do veículo
+- `GET /api/fuel-records/:id` - Buscar registro específico
+- `POST /api/fuel-records` - Criar novo registro
+- `PUT /api/fuel-records/:id` - Atualizar registro
+- `DELETE /api/fuel-records/:id` - Excluir registro
+
+### Lembretes (Autenticados)
+- `GET /api/reminders` - Listar lembretes (com filtros: status, type, vehicle_id)
+- `GET /api/reminders/pending` - Listar lembretes pendentes (próximos de vencer)
+- `GET /api/reminders/vehicle/:vehicleId` - Listar lembretes de um veículo
+- `GET /api/reminders/:id` - Buscar lembrete específico
+- `POST /api/reminders` - Criar novo lembrete
+- `PUT /api/reminders/:id` - Atualizar lembrete
+- `PATCH /api/reminders/:id/complete` - Marcar como concluído
+- `PATCH /api/reminders/:id/dismiss` - Marcar como descartado
+- `DELETE /api/reminders/:id` - Excluir lembrete
 
 #### Campos de Preferências:
 - **theme_mode**: 'light', 'dark', 'system' (segue o sistema operacional) - Padrão: 'system'
