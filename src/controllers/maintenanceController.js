@@ -187,6 +187,19 @@ const createMaintenance = async (req, res) => {
         throw new Error('VEHICLE_NOT_FOUND');
       }
 
+      // Validar quilometragem: não pode ser menor que a atual do veículo
+      if (km_at_service && km_at_service < vehicle.current_km) {
+        throw new Error('INVALID_MILEAGE');
+      }
+
+      // Validar próxima quilometragem: não pode ser menor que a atual cadastrada
+      if (next_service_km) {
+        const currentKmForValidation = km_at_service || vehicle.current_km;
+        if (next_service_km < currentKmForValidation) {
+          throw new Error('INVALID_NEXT_MILEAGE');
+        }
+      }
+
       // Criar nova manutenção
       const newMaintenance = maintenanceRepo.create({
         vehicle_id: parseInt(vehicle_id),
@@ -237,6 +250,20 @@ const createMaintenance = async (req, res) => {
       return res.status(403).json({
         error: 'Acesso negado',
         message: 'Veículo não encontrado ou não pertence ao usuário'
+      });
+    }
+
+    if (error.message === 'INVALID_MILEAGE') {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        message: 'A quilometragem informada não pode ser menor que a quilometragem atual do veículo'
+      });
+    }
+
+    if (error.message === 'INVALID_NEXT_MILEAGE') {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        message: 'A próxima quilometragem não pode ser menor que a quilometragem atual cadastrada'
       });
     }
 
@@ -294,6 +321,25 @@ const updateMaintenance = async (req, res) => {
         throw new Error('MAINTENANCE_NOT_FOUND');
       }
 
+      // Buscar dados atuais do veículo
+      const vehicle = await vehicleRepo.findOne({
+        where: { id: maintenance.vehicle_id },
+        select: ['id', 'current_km']
+      });
+
+      // Validar quilometragem: não pode ser menor que a atual do veículo
+      if (km_at_service && vehicle && km_at_service < vehicle.current_km) {
+        throw new Error('INVALID_MILEAGE');
+      }
+
+      // Validar próxima quilometragem: não pode ser menor que a atual cadastrada
+      if (next_service_km && vehicle) {
+        const currentKmForValidation = km_at_service || vehicle.current_km;
+        if (next_service_km < currentKmForValidation) {
+          throw new Error('INVALID_NEXT_MILEAGE');
+        }
+      }
+
       // Atualizar manutenção
       await maintenanceRepo.update(parseInt(id), {
         service_provider_id: service_provider_id ? parseInt(service_provider_id) : null,
@@ -313,19 +359,12 @@ const updateMaintenance = async (req, res) => {
         where: { id: parseInt(id) }
       });
 
-      // Atualizar quilometragem do veículo se fornecida
-      if (km_at_service && km_at_service > 0) {
-        const vehicle = await vehicleRepo.findOne({
-          where: { id: maintenance.vehicle_id },
-          select: ['id', 'current_km']
-        });
-
-        if (vehicle && km_at_service > vehicle.current_km) {
-          await vehicleRepo.update(
-            { id: maintenance.vehicle_id },
-            { current_km: km_at_service }
-          );
-        }
+      // Atualizar quilometragem do veículo se fornecida e maior que a atual
+      if (km_at_service && vehicle && km_at_service > vehicle.current_km) {
+        await vehicleRepo.update(
+          { id: maintenance.vehicle_id },
+          { current_km: km_at_service }
+        );
       }
 
       logger.info('Maintenance updated', {
@@ -351,6 +390,20 @@ const updateMaintenance = async (req, res) => {
       return res.status(404).json({
         error: 'Manutenção não encontrada',
         message: 'Manutenção não existe ou não pertence ao usuário'
+      });
+    }
+
+    if (error.message === 'INVALID_MILEAGE') {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        message: 'A quilometragem informada não pode ser menor que a quilometragem atual do veículo'
+      });
+    }
+
+    if (error.message === 'INVALID_NEXT_MILEAGE') {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        message: 'A próxima quilometragem não pode ser menor que a quilometragem atual cadastrada'
       });
     }
 
