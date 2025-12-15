@@ -810,6 +810,7 @@ A documentação completa da API está disponível através do Swagger UI:
 - `GET /api/users/:id` - Busca usuário por ID
 - `POST /api/users` - Cria novo usuário **(admin only)**
 - `PUT /api/users/profile` - Atualizar perfil
+- `PUT /api/users/:id` - Atualizar usuário **(admin only)**
 - `PUT /api/users/change-password` - Trocar própria senha
 - `PUT /api/users/:id/change-password` - Trocar senha de outro usuário (admin)
 - `PATCH /api/users/:id/deactivate` - Inativar usuário **(admin only)**
@@ -843,12 +844,13 @@ A documentação completa da API está disponível através do Swagger UI:
 
 ### Manutenções (Autenticados)
 - `GET /api/maintenances` - Listar manutenções do usuário autenticado
+- `GET /api/maintenances/stats` - Obter estatísticas de manutenções do usuário
+- `GET /api/maintenances/vehicle/:vehicleId` - Listar manutenções de um veículo específico
 - `GET /api/maintenances/:id` - Buscar manutenção específica
 - `POST /api/maintenances` - Criar registro de manutenção
 - `PUT /api/maintenances/:id` - Atualizar registro de manutenção
 - `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
-- `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
 
 ### Anexos de Manutenção (Autenticados)
 - `GET /api/maintenance-attachments/maintenance/:maintenanceId` - Listar anexos de uma manutenção

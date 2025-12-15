@@ -114,6 +114,7 @@ npm run init-db
 ### Autenticação (Público)
 - `POST /api/users/register` - Registrar novo usuário (retorna JWT)
 - `POST /api/users/login` - Login com username/email e senha (retorna JWT)
+- `POST /api/users/logout` - Logout (invalida refresh token)
 - `POST /api/users/refresh-token` - Renovar token de acesso
 
 ### Recuperação de Senha (Público)
@@ -127,6 +128,7 @@ npm run init-db
 - `GET /api/users/:id` - Buscar usuário por ID
 - `POST /api/users` - Criar novo usuário **(admin only)**
 - `PUT /api/users/profile` - Atualizar perfil do usuário autenticado
+- `PUT /api/users/:id` - Atualizar usuário **(admin only)**
 - `PUT /api/users/change-password` - Alterar senha (usuário logado)
 - `PUT /api/users/:id/change-password` - Alterar senha de outro usuário (admin)
 - `PATCH /api/users/:id/deactivate` - Inativar usuário **(admin only)**
@@ -155,12 +157,13 @@ npm run init-db
 
 ### Manutenções (Requer autenticação JWT)
 - `GET /api/maintenances` - Listar manutenções do usuário autenticado
+- `GET /api/maintenances/stats` - Obter estatísticas de manutenções do usuário
+- `GET /api/maintenances/vehicle/:vehicleId` - Listar manutenções de um veículo específico
 - `GET /api/maintenances/:id` - Buscar manutenção específica
 - `POST /api/maintenances` - Criar registro de manutenção
 - `PUT /api/maintenances/:id` - Atualizar registro de manutenção
 - `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
-- `GET /api/maintenances/user/:userId` - Listar manutenções de usuário específico **(admin only)**
 
 ### Anexos de Manutenção (Requer autenticação JWT)
 - `GET /api/maintenance-attachments/maintenance/:maintenanceId` - Listar anexos de uma manutenção
