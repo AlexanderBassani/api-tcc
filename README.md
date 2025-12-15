@@ -170,9 +170,45 @@ npm run init-db
 - `PUT /api/maintenance-attachments/:id` - Atualizar nome do anexo
 - `DELETE /api/maintenance-attachments/:id` - Excluir anexo
 
-**Tipos de arquivo permitidos:** JPEG, JPG, PNG, GIF, PDF, TXT  
-**Tamanho máximo:** 10MB por arquivo  
+**Tipos de arquivo permitidos:** JPEG, JPG, PNG, GIF, PDF, TXT
+**Tamanho máximo:** 10MB por arquivo
 **Upload múltiplo:** Até 5 arquivos por requisição
+
+### Tipos de Manutenção (Requer autenticação JWT)
+- `GET /api/maintenance-types` - Listar todos os tipos de manutenção (com filtros: has_km_interval, has_month_interval)
+- `GET /api/maintenance-types/:id` - Buscar tipo específico
+- `POST /api/maintenance-types` - Criar novo tipo **(admin only)**
+- `PUT /api/maintenance-types/:id` - Atualizar tipo **(admin only)**
+- `DELETE /api/maintenance-types/:id` - Excluir tipo **(admin only)**
+
+### Prestadores de Serviço (Requer autenticação JWT)
+- `GET /api/service-providers` - Listar prestadores (com filtros: type, is_favorite, min_rating)
+- `GET /api/service-providers/favorites` - Listar apenas favoritos
+- `GET /api/service-providers/type/:type` - Listar por tipo específico
+- `GET /api/service-providers/:id` - Buscar prestador específico
+- `POST /api/service-providers` - Criar novo prestador
+- `PUT /api/service-providers/:id` - Atualizar prestador
+- `DELETE /api/service-providers/:id` - Excluir prestador
+
+### Registros de Abastecimento (Requer autenticação JWT)
+- `GET /api/fuel-records` - Listar registros (com filtros: vehicle_id, fuel_type, start_date, end_date)
+- `GET /api/fuel-records/vehicle/:vehicleId` - Listar registros de um veículo
+- `GET /api/fuel-records/vehicle/:vehicleId/statistics` - Estatísticas de consumo do veículo
+- `GET /api/fuel-records/:id` - Buscar registro específico
+- `POST /api/fuel-records` - Criar novo registro
+- `PUT /api/fuel-records/:id` - Atualizar registro
+- `DELETE /api/fuel-records/:id` - Excluir registro
+
+### Lembretes (Requer autenticação JWT)
+- `GET /api/reminders` - Listar lembretes (com filtros: status, type, vehicle_id)
+- `GET /api/reminders/pending` - Listar lembretes pendentes (próximos de vencer)
+- `GET /api/reminders/vehicle/:vehicleId` - Listar lembretes de um veículo
+- `GET /api/reminders/:id` - Buscar lembrete específico
+- `POST /api/reminders` - Criar novo lembrete
+- `PUT /api/reminders/:id` - Atualizar lembrete
+- `PATCH /api/reminders/:id/complete` - Marcar como concluído
+- `PATCH /api/reminders/:id/dismiss` - Marcar como descartado
+- `DELETE /api/reminders/:id` - Excluir lembrete
 
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
@@ -223,6 +259,9 @@ As seguintes rotas requerem role de admin:
 - ✅ **DELETE /api/users/:id** - Excluir usuário (soft/hard delete)
 - ✅ **GET /api/vehicles/user/:userId** - Listar veículos de usuário específico
 - ✅ **GET /api/maintenances/user/:userId** - Listar manutenções de usuário específico
+- ✅ **POST /api/maintenance-types** - Criar tipo de manutenção
+- ✅ **PUT /api/maintenance-types/:id** - Atualizar tipo de manutenção
+- ✅ **DELETE /api/maintenance-types/:id** - Excluir tipo de manutenção
 
 ### Mensagens de Erro
 Quando um usuário sem permissão tenta acessar uma rota protegida:
@@ -245,26 +284,37 @@ src/
 ├── config/          # Configurações
 │   ├── database.js      # Conexão PostgreSQL
 │   ├── email.js         # Configuração de email (nodemailer)
+│   ├── logger.js        # Configuração Winston
+│   ├── swagger.js       # Configuração Swagger
 │   └── initDb.js        # Inicialização do banco
 ├── controllers/     # Controladores
-│   ├── userController.js            # CRUD de usuários + auth
-│   ├── passwordResetController.js   # Reset de senha
-│   ├── preferencesController.js     # Preferências do usuário
-│   ├── vehicleController.js         # CRUD de veículos
-│   └── maintenanceController.js     # CRUD de manutenções
+│   ├── userController.js                    # CRUD de usuários + auth
+│   ├── passwordResetController.js           # Reset de senha
+│   ├── preferencesController.js             # Preferências do usuário
+│   ├── vehicleController.js                 # CRUD de veículos
+│   ├── maintenanceController.js             # CRUD de manutenções
+│   ├── maintenanceAttachmentController.js   # Upload e gestão de anexos
+│   ├── maintenanceTypeController.js         # CRUD de tipos de manutenção
+│   ├── serviceProviderController.js         # CRUD de prestadores de serviço
+│   ├── fuelRecordController.js              # CRUD de registros de abastecimento
+│   └── reminderController.js                # Sistema de lembretes e alertas
 ├── middleware/      # Middlewares
-│   ├── auth.js          # Autenticação JWT e autorização
+│   ├── auth.js          # Autenticação JWT e autorização RBAC
 │   ├── errorHandler.js  # Tratamento de erros
-│   ├── rateLimiting.js  # Rate limiting para rotas
+│   ├── rateLimiting.js  # Rate limiting por rota
 │   ├── requestLogger.js # Logging de requisições HTTP
 │   └── validation.js    # Validação e sanitização de dados
-├── migrations/      # Migrations do banco
 ├── routes/          # Rotas da API
-│   ├── userRoutes.js       # Rotas de usuários
-│   ├── passwordReset.js    # Rotas de reset de senha
-│   ├── preferences.js      # Rotas de preferências
-│   ├── vehicleRoutes.js    # Rotas de veículos
-│   └── maintenanceRoutes.js # Rotas de manutenções
+│   ├── userRoutes.js                 # Rotas de usuários
+│   ├── passwordReset.js              # Rotas de reset de senha
+│   ├── preferences.js                # Rotas de preferências
+│   ├── vehicleRoutes.js              # Rotas de veículos
+│   ├── maintenanceRoutes.js          # Rotas de manutenções
+│   ├── maintenanceAttachmentRoutes.js # Rotas de anexos de manutenção
+│   ├── maintenanceTypeRoutes.js      # Rotas de tipos de manutenção
+│   ├── serviceProviderRoutes.js      # Rotas de prestadores de serviço
+│   ├── fuelRecordRoutes.js           # Rotas de registros de abastecimento
+│   └── reminderRoutes.js             # Rotas de lembretes
 ├── templates/       # Templates de email
 │   └── passwordResetEmail.js  # Template de reset de senha
 ├── utils/           # Utilitários
@@ -273,15 +323,22 @@ src/
 ├── app.js          # Configuração do Express
 └── server.js       # Inicialização do servidor
 __tests__/          # Testes Jest
-├── helpers/            # Funções auxiliares para testes
-│   └── testUtils.js    # Helpers para gerar dados únicos
-├── app.test.js         # Testes da aplicação
-├── userRoutes.test.js  # Testes de rotas de usuários
-├── authorization.test.js # Testes de autorização
-├── passwordReset.test.js # Testes de reset de senha
-├── preferences.test.js   # Testes de preferências
-└── vehicleRoutes.test.js # Testes de rotas de veículos
-scripts/            # Scripts utilitários (init-db, migrate)
+├── helpers/                         # Funções auxiliares para testes
+│   └── testUtils.js                 # Helpers para gerar dados únicos
+├── setup.js                         # Configuração global (NODE_ENV=test)
+├── app.test.js                      # Testes básicos da aplicação
+├── userRoutes.test.js               # Testes de rotas de usuários
+├── authorization.test.js            # Testes de autorização RBAC
+├── passwordReset.test.js            # Testes de reset de senha
+├── preferences.test.js              # Testes de preferências
+├── vehicleRoutes.test.js            # Testes de rotas de veículos
+├── maintenanceRoutes.test.js        # Testes de rotas de manutenções
+└── maintenanceAttachmentRoutes.test.js # Testes de anexos de manutenção
+scripts/            # Scripts utilitários
+├── init-db.js      # Inicialização do banco
+├── migrate.js      # Sistema unificado de migrations (JS + SQL)
+└── migrations/     # Arquivos de migrations (JS e SQL)
+logs/               # Arquivos de log gerados pelo winston (gitignored)
 .vscode/            # Configurações VS Code (debug)
 Dockerfile          # Configuração Docker da aplicação
 docker-compose.yml  # Orquestração dos serviços
@@ -479,9 +536,9 @@ npm test -- --coverage
 ### Estatísticas dos Testes
 
 ```
-✅ Test Suites: 6 passed, 6 total
-✅ Tests:       143 passed, 143 total
-⏱️  Time:        ~15s
+✅ Test Suites: 8 passed, 8 total
+✅ Tests:       176 passed, 176 total
+⏱️  Time:        ~7s
 ```
 
 ### Cobertura de Testes
@@ -495,6 +552,7 @@ Os testes cobrem todas as funcionalidades principais da API:
 - ✅ **Preferências**: Obter, atualizar, resetar preferências de usuário
 - ✅ **CRUD de Veículos**: Criar, listar, buscar, atualizar, inativar, deletar
 - ✅ **CRUD de Manutenções**: Criar, listar, buscar, atualizar, marcar como concluída, deletar
+- ✅ **Anexos de Manutenção**: Upload, download, listagem, atualização, exclusão, validação de tipos
 - ✅ **Validações**: Dados inválidos, usuários inexistentes, autenticação
 
 ### Helpers de Teste
@@ -502,13 +560,16 @@ Os testes cobrem todas as funcionalidades principais da API:
 O projeto inclui funções auxiliares para gerar dados únicos e evitar conflitos:
 
 ```javascript
-const { generateTestUsername, generateTestEmail } = require('./helpers/testUtils');
+const { generateTestUsername, generateTestEmail, generateTestPlate } = require('./helpers/testUtils');
 
 // Gerar username único (máx 30 caracteres)
 const username = generateTestUsername('admin'); // admin_420123_45
 
 // Gerar email único
 const email = generateTestEmail('test'); // test_1732113420123_456@test.com
+
+// Gerar placa única (Mercosul ou antiga)
+const plate = generateTestPlate('mercosul'); // ABC1D23 ou ABC1234
 ```
 
 ### Características dos Testes
@@ -529,6 +590,8 @@ const email = generateTestEmail('test'); // test_1732113420123_456@test.com
 | `passwordReset.test.js` | Testes de reset de senha | Solicitar, validar, redefinir |
 | `preferences.test.js` | Testes de preferências | Obter, atualizar, resetar |
 | `vehicleRoutes.test.js` | Testes de rotas de veículos | CRUD completo, admin endpoints |
+| `maintenanceRoutes.test.js` | Testes de rotas de manutenções | CRUD completo, conclusão |
+| `maintenanceAttachmentRoutes.test.js` | Testes de anexos de manutenção | Upload, download, validações |
 
 ### Exemplo de Teste
 
@@ -777,6 +840,11 @@ Todas as rotas da API utilizam validação:
 - ✅ 5 validações em `preferences.js`
 - ✅ 8 validações em `vehicleRoutes.js`
 - ✅ 6 validações em `maintenanceRoutes.js`
+- ✅ 5 validações em `maintenanceAttachmentRoutes.js`
+- ✅ 5 validações em `maintenanceTypeRoutes.js`
+- ✅ 6 validações em `serviceProviderRoutes.js`
+- ✅ 6 validações em `fuelRecordRoutes.js`
+- ✅ 8 validações em `reminderRoutes.js`
 
 ### Proteção Contra Ataques
 
@@ -798,10 +866,28 @@ O projeto inclui um sistema completo de migrations para gerenciar mudanças no b
 - ✅ Tabela `migrations` para controle
 - ✅ Comandos simples via npm scripts
 
+### Sistema Unificado de Migrations
+
+O projeto suporta tanto migrations JavaScript (`.js`) quanto SQL (`.sql`) na pasta `scripts/migrations/`:
+
+**Migrations SQL Disponíveis:**
+1. `000_add_role_to_users.sql` - Adiciona coluna role para RBAC
+2. `001_create_user_preferences.sql` - Tabela de preferências do usuário
+3. `002_create_vehicles.sql` - Tabela de veículos
+4. `003_create_maintenance_types.sql` - Tipos de manutenção padronizados
+5. `004_create_service_providers.sql` - Prestadores de serviço (oficinas)
+6. `005_create_maintenances.sql` - Registros de manutenção
+7. `006_create_maintenance_attachments.sql` - Anexos das manutenções
+8. `007_create_fuel_records.sql` - Registros de abastecimento
+9. `008_create_reminders.sql` - Sistema de lembretes e alertas
+10. `009_create_utility_functions.sql` - Funções e triggers auxiliares
+11. `010_create_sample_data.sql` - Dados iniciais e configurações
+
 ### Criar uma nova migration
-1. Crie um arquivo em `src/migrations/` seguindo o padrão: `XXX_descricao.js`
-2. Implemente as funções `up()` e `down()`
-3. Execute com `npm run migrate:up`
+1. Crie um arquivo em `scripts/migrations/` seguindo o padrão: `XXX_descricao.sql` ou `XXX_descricao.js`
+2. Para SQL: Escreva o script SQL diretamente
+3. Para JS: Implemente as funções `up()` e `down()`
+4. Execute com `npm run migrate:up`
 
 ### Exemplo de migration
 ```javascript

@@ -1063,27 +1063,64 @@ O projeto implementa validação e sanitização robusta usando **express-valida
 O arquivo contém validadores específicos para cada tipo de operação:
 
 #### Validadores Disponíveis
+
+**Usuários e Autenticação:**
 - `validateRegister` - Registro de novos usuários
 - `validateLogin` - Login de usuários
 - `validateCreateUser` - Criação de usuário por admin
 - `validateUpdateProfile` - Atualização de perfil
 - `validateChangePassword` - Alteração de senha do próprio usuário
 - `validateAdminChangePassword` - Alteração de senha de outro usuário (admin)
+- `validateRefreshToken` - Validação de refresh token
+- `validateUserId` - Validação de ID de usuário em parâmetros de rota
+- `validateUserIdOptional` - Validação opcional de ID de usuário
+- `validateUserIdParam` - Validação de ID de usuário em parâmetros de rota (admin)
+
+**Reset de Senha:**
 - `validatePasswordResetRequest` - Solicitação de reset de senha
 - `validatePasswordResetToken` - Validação de token de reset
 - `validatePasswordReset` - Reset de senha com token
+
+**Preferências:**
 - `validatePreferences` - Atualização de preferências do usuário
 - `validateTheme` - Atualização apenas de tema (PATCH)
-- `validateUserId` - Validação de ID de usuário em parâmetros de rota
-- `validateUserIdOptional` - Validação opcional de ID de usuário
-- `validateRefreshToken` - Validação de refresh token
+
+**Veículos:**
 - `validateCreateVehicle` - Validação para criação de veículos
 - `validateUpdateVehicle` - Validação para atualização de veículos
 - `validateVehicleId` - Validação de ID de veículo em parâmetros de rota
-- `validateUserIdParam` - Validação de ID de usuário em parâmetros de rota (admin)
+
+**Manutenções:**
 - `validateCreateMaintenance` - Validação para criação de manutenções
 - `validateUpdateMaintenance` - Validação para atualização de manutenções
 - `validateMaintenanceId` - Validação de ID de manutenção em parâmetros de rota
+- `validateCompleteMaintenance` - Validação para marcar manutenção como concluída
+
+**Anexos de Manutenção:**
+- `validateMaintenanceIdParam` - Validação de ID de manutenção em parâmetros
+- `validateAttachmentId` - Validação de ID de anexo
+- `validateUpdateAttachment` - Validação para atualizar nome de anexo
+
+**Tipos de Manutenção:**
+- `validateCreateMaintenanceType` - Validação para criar tipo de manutenção
+- `validateUpdateMaintenanceType` - Validação para atualizar tipo de manutenção
+- `validateMaintenanceTypeId` - Validação de ID de tipo de manutenção
+
+**Prestadores de Serviço:**
+- `validateCreateServiceProvider` - Validação para criar prestador
+- `validateUpdateServiceProvider` - Validação para atualizar prestador
+- `validateServiceProviderId` - Validação de ID de prestador
+
+**Registros de Abastecimento:**
+- `validateCreateFuelRecord` - Validação para criar registro de abastecimento
+- `validateUpdateFuelRecord` - Validação para atualizar registro
+- `validateFuelRecordId` - Validação de ID de registro de abastecimento
+
+**Lembretes:**
+- `validateCreateReminder` - Validação para criar lembrete
+- `validateUpdateReminder` - Validação para atualizar lembrete
+- `validateReminderId` - Validação de ID de lembrete
+- `validateReminderStatus` - Validação para alterar status de lembrete
 
 ### Características da Validação
 
@@ -1185,6 +1222,11 @@ router.post('/vehicles', authenticateToken, validateCreateVehicle, createVehicle
 - **preferences.js**: 5 validações aplicadas
 - **vehicleRoutes.js**: 8 validações aplicadas
 - **maintenanceRoutes.js**: 6 validações aplicadas
+- **maintenanceAttachmentRoutes.js**: 5 validações aplicadas
+- **maintenanceTypeRoutes.js**: 5 validações aplicadas
+- **serviceProviderRoutes.js**: 6 validações aplicadas
+- **fuelRecordRoutes.js**: 6 validações aplicadas
+- **reminderRoutes.js**: 8 validações aplicadas
 
 ### Proteção Contra Ataques
 
