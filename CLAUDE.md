@@ -929,6 +929,14 @@ A documentação completa da API está disponível através do Swagger UI:
 - **maintenance_type_id**: Tipo de manutenção (inteiro, opcional)
 - **service_provider_id**: Prestador de serviço (inteiro, opcional)
 - **description**: Descrição da manutenção (string, obrigatório)
+- **category**: Categoria da manutenção (string, opcional, padrão: 'other')
+  - **preventive**: Manutenção preventiva (troca de óleo, filtros, etc)
+  - **corrective**: Manutenção corretiva (conserto de defeitos)
+  - **inspection**: Inspeção/Revisão programada
+  - **upgrade**: Melhoria/Upgrade (instalação de acessórios, etc)
+  - **warranty**: Manutenção em garantia
+  - **recall**: Recall do fabricante
+  - **other**: Outras manutenções
 - **cost**: Custo da manutenção (decimal >= 0, obrigatório)
 - **service_date**: Data do serviço (date, obrigatório)
 - **km_at_service**: Quilometragem no momento do serviço (inteiro >= 0, obrigatório)

@@ -525,6 +525,12 @@ const validateCreateMaintenance = [
     .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
 
+  body('category')
+    .optional()
+    .trim()
+    .isIn(['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'])
+    .withMessage('Categoria inválida. Use: preventive, corrective, inspection, upgrade, warranty, recall ou other'),
+
   body('description')
     .optional()
     .trim()
@@ -585,6 +591,12 @@ const validateUpdateMaintenance = [
     .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
     .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
+
+  body('category')
+    .optional()
+    .trim()
+    .isIn(['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'])
+    .withMessage('Categoria inválida. Use: preventive, corrective, inspection, upgrade, warranty, recall ou other'),
 
   body('description')
     .optional()
