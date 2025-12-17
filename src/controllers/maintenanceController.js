@@ -157,6 +157,7 @@ const createMaintenance = async (req, res) => {
       vehicle_id,
       service_provider_id,
       type,
+      category,
       description,
       cost,
       km_at_service,
@@ -205,6 +206,7 @@ const createMaintenance = async (req, res) => {
         vehicle_id: parseInt(vehicle_id),
         service_provider_id: service_provider_id ? parseInt(service_provider_id) : null,
         type,
+        category: category || 'other',
         description,
         cost,
         km_at_service,
@@ -292,6 +294,7 @@ const updateMaintenance = async (req, res) => {
     const {
       service_provider_id,
       type,
+      category,
       description,
       cost,
       km_at_service,
@@ -341,7 +344,7 @@ const updateMaintenance = async (req, res) => {
       }
 
       // Atualizar manutenção
-      await maintenanceRepo.update(parseInt(id), {
+      const updateData = {
         service_provider_id: service_provider_id ? parseInt(service_provider_id) : null,
         type,
         description,
@@ -352,7 +355,14 @@ const updateMaintenance = async (req, res) => {
         next_service_date,
         invoice_number,
         warranty_until
-      });
+      };
+
+      // Adicionar category apenas se foi fornecida
+      if (category !== undefined) {
+        updateData.category = category;
+      }
+
+      await maintenanceRepo.update(parseInt(id), updateData);
 
       // Buscar manutenção atualizada
       const updatedMaintenance = await maintenanceRepo.findOne({

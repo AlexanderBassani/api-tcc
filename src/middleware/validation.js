@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 
 /**
  * Middleware para processar erros de validação
@@ -525,6 +525,12 @@ const validateCreateMaintenance = [
     .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
 
+  body('category')
+    .optional()
+    .trim()
+    .isIn(['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'])
+    .withMessage('Categoria inválida. Use: preventive, corrective, inspection, upgrade, warranty, recall ou other'),
+
   body('description')
     .optional()
     .trim()
@@ -585,6 +591,12 @@ const validateUpdateMaintenance = [
     .isLength({ min: 2, max: 100 }).withMessage('Tipo de manutenção deve ter entre 2 e 100 caracteres')
     .matches(/^[a-zA-ZÀ-ÿ0-9\s\-\.\(\)\/\_]+$/).withMessage('Tipo de manutenção contém caracteres inválidos')
     .escape(),
+
+  body('category')
+    .optional()
+    .trim()
+    .isIn(['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'])
+    .withMessage('Categoria inválida. Use: preventive, corrective, inspection, upgrade, warranty, recall ou other'),
 
   body('description')
     .optional()
@@ -1191,6 +1203,40 @@ const validateMaintenanceTypeId = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para queries de dashboard
+ */
+const validateDashboardQuery = [
+  query('months')
+    .optional()
+    .isInt({ min: 1, max: 12 }).withMessage('Meses deve ser um número entre 1 e 12')
+    .toInt(),
+
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 50 }).withMessage('Limite deve ser um número entre 1 e 50')
+    .toInt(),
+
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para vehicle_id em query
+ */
+const validateVehicleIdQuery = [
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1230,5 +1276,7 @@ module.exports = {
   validateCreateMaintenanceType,
   validateUpdateMaintenanceType,
   validateMaintenanceTypeId,
+  validateDashboardQuery,
+  validateVehicleIdQuery,
   handleValidationErrors
 };

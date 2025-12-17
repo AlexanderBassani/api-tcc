@@ -26,6 +26,9 @@ const fuelRecordRoutes = require('./routes/fuelRecordRoutes');
 //SERVICE PROVIDERS ROUTES
 const serviceProviderRoutes = require('./routes/serviceProviderRoutes');
 
+//DASHBOARD ROUTES
+const dashboardRoutes = require('./routes/dashboardRoutes');
+
 //SECURITY
 const cors = require('cors');
 const helmet = require('helmet');
@@ -256,6 +259,7 @@ app.use('/api/maintenance-types', maintenanceTypeRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/fuel-records', fuelRecordRoutes);
 app.use('/api/service-providers', serviceProviderRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Middleware para rotas não encontradas
 app.use(notFoundHandler);

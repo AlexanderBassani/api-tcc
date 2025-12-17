@@ -165,6 +165,15 @@ npm run init-db
 - `PATCH /api/maintenances/:id/complete` - Marcar manutenção como concluída
 - `DELETE /api/maintenances/:id` - Excluir registro de manutenção
 
+**Categorias de Manutenção:**
+- `preventive` - Manutenção preventiva (troca de óleo, filtros, etc)
+- `corrective` - Manutenção corretiva (conserto de defeitos)
+- `inspection` - Inspeção/Revisão programada
+- `upgrade` - Melhoria/Upgrade (instalação de acessórios)
+- `warranty` - Manutenção em garantia
+- `recall` - Recall do fabricante
+- `other` - Outras manutenções (padrão)
+
 ### Anexos de Manutenção (Requer autenticação JWT)
 - `GET /api/maintenance-attachments/maintenance/:maintenanceId` - Listar anexos de uma manutenção
 - `GET /api/maintenance-attachments/:id` - Buscar anexo específico
@@ -212,6 +221,17 @@ npm run init-db
 - `PATCH /api/reminders/:id/complete` - Marcar como concluído
 - `PATCH /api/reminders/:id/dismiss` - Marcar como descartado
 - `DELETE /api/reminders/:id` - Excluir lembrete
+
+### Dashboard (Requer autenticação JWT)
+- `GET /api/dashboard/overview` - Visão geral completa do dashboard (despesas + atividades + lembretes)
+- `GET /api/dashboard/monthly-expenses` - Despesas mensais por tipo (combustível, manutenção, outros)
+- `GET /api/dashboard/upcoming-maintenances` - Manutenções/lembretes próximos de vencer
+- `GET /api/dashboard/recent-activities` - Atividades recentes (abastecimentos e manutenções)
+
+**Query Parameters disponíveis:**
+- `months` (1-12, padrão: 6) - Para monthly-expenses
+- `limit` (1-50, padrão varia) - Limite de resultados
+- `vehicle_id` - Filtrar por veículo específico (opcional em todos os endpoints)
 
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
@@ -300,7 +320,8 @@ src/
 │   ├── maintenanceTypeController.js         # CRUD de tipos de manutenção
 │   ├── serviceProviderController.js         # CRUD de prestadores de serviço
 │   ├── fuelRecordController.js              # CRUD de registros de abastecimento
-│   └── reminderController.js                # Sistema de lembretes e alertas
+│   ├── reminderController.js                # Sistema de lembretes e alertas
+│   └── dashboardController.js               # Estatísticas e visão geral
 ├── middleware/      # Middlewares
 │   ├── auth.js          # Autenticação JWT e autorização RBAC
 │   ├── errorHandler.js  # Tratamento de erros
@@ -506,6 +527,33 @@ O projeto inclui os seguintes serviços:
 1. **API (Node.js)** - Porta 3001 (externa) / 3000 (interna)
 2. **PostgreSQL** - Porta 5432
 3. **PgAdmin** - Porta 8080 (Interface web para PostgreSQL)
+
+## 📝 Regras de Desenvolvimento
+
+### ⚠️ IMPORTANTE: Documentação
+
+**SEMPRE que criar ou modificar rotas/endpoints da API, você DEVE:**
+
+1. ✅ Atualizar o **README.md** com os novos endpoints
+2. ✅ Atualizar o **src/config/swagger.js** com os schemas completos
+3. ✅ Adicionar documentação Swagger nas rotas (`@swagger` comments)
+4. ✅ Atualizar o **CLAUDE.md** se relevante para configuração do projeto
+
+**Sem exceções!** A documentação deve sempre estar sincronizada com o código.
+
+### 📋 Checklist para Novas Features
+
+Ao adicionar uma nova funcionalidade:
+- [ ] Controller criado/atualizado
+- [ ] Rotas criadas/atualizadas
+- [ ] Validações adicionadas
+- [ ] README.md atualizado
+- [ ] Swagger schemas adicionados
+- [ ] Swagger docs nas rotas
+- [ ] CLAUDE.md atualizado (se necessário)
+- [ ] Migrations criadas (se necessário)
+- [ ] Testes escritos
+- [ ] Apenas fazer commit/push quando EXPLICITAMENTE solicitado
 
 ## 🔧 Tecnologias Utilizadas
 

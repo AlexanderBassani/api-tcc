@@ -929,6 +929,14 @@ A documentação completa da API está disponível através do Swagger UI:
 - **maintenance_type_id**: Tipo de manutenção (inteiro, opcional)
 - **service_provider_id**: Prestador de serviço (inteiro, opcional)
 - **description**: Descrição da manutenção (string, obrigatório)
+- **category**: Categoria da manutenção (string, opcional, padrão: 'other')
+  - **preventive**: Manutenção preventiva (troca de óleo, filtros, etc)
+  - **corrective**: Manutenção corretiva (conserto de defeitos)
+  - **inspection**: Inspeção/Revisão programada
+  - **upgrade**: Melhoria/Upgrade (instalação de acessórios, etc)
+  - **warranty**: Manutenção em garantia
+  - **recall**: Recall do fabricante
+  - **other**: Outras manutenções
 - **cost**: Custo da manutenção (decimal >= 0, obrigatório)
 - **service_date**: Data do serviço (date, obrigatório)
 - **km_at_service**: Quilometragem no momento do serviço (inteiro >= 0, obrigatório)
@@ -1054,6 +1062,24 @@ A documentação completa da API está disponível através do Swagger UI:
 - Lembretes recorrentes automáticos
 - Endpoint especial para listar pendentes (próximos 30 dias ou 500km)
 - Cálculos automáticos de dias/km até vencimento
+
+### Dashboard (Autenticados)
+- `GET /api/dashboard/overview` - Visão geral completa do dashboard (despesas, atividades, lembretes)
+- `GET /api/dashboard/monthly-expenses` - Despesas mensais (combustível, manutenção, outros)
+- `GET /api/dashboard/upcoming-maintenances` - Manutenções próximas
+- `GET /api/dashboard/recent-activities` - Atividades recentes (abastecimentos e manutenções)
+
+#### Query Parameters:
+- **months**: Número de meses (1-12, padrão: 6) - para monthly-expenses
+- **limit**: Limite de resultados (1-50, padrão varia por endpoint)
+- **vehicle_id**: Filtrar por veículo específico (opcional em todos os endpoints)
+
+**Funcionalidades:**
+- Agregação de despesas por tipo (combustível, manutenção, outros)
+- Cálculo automático de percentuais
+- Timeline de atividades recentes combinando abastecimentos e manutenções
+- Lembretes ordenados por proximidade (data ou quilometragem)
+- Suporte a filtro por veículo em todos os endpoints
 
 ## Sistema de Autorização (RBAC)
 
@@ -1363,6 +1389,14 @@ O projeto possui um sistema completo de migrations SQL que implementa o diagrama
 - Se o usuário pedir "faça commit", fazer commit mas **NÃO** fazer push
 - Se o usuário pedir "faça commit e push", fazer ambos
 - Sempre atualizar `.env.example` quando modificar `.env`
+
+#### Documentação de Rotas/Endpoints
+- **SEMPRE** que criar ou modificar rotas/endpoints da API, você **DEVE**:
+  1. ✅ Atualizar o **README.md** com os novos endpoints
+  2. ✅ Atualizar o **src/config/swagger.js** com os schemas completos
+  3. ✅ Adicionar documentação Swagger nas rotas (`@swagger` comments)
+  4. ✅ Atualizar este **CLAUDE.md** se relevante para configuração do projeto
+- **Sem exceções!** A documentação deve sempre estar sincronizada com o código
 
 #### Testes
 - **SEMPRE** executar `npm test` após finalizar qualquer modificação no código

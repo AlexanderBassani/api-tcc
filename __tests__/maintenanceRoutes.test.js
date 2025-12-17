@@ -89,6 +89,7 @@ describe('Maintenance Routes API', () => {
       const maintenanceData = {
         vehicle_id: vehicleId,
         type: 'Troca de óleo',
+        category: 'preventive',
         description: 'Troca de óleo do motor e filtro',
         cost: 150.50,
         km_at_service: 51000,
@@ -109,6 +110,7 @@ describe('Maintenance Routes API', () => {
       expect(response.body.data).toMatchObject({
         vehicle_id: vehicleId,
         type: 'Troca de óleo',
+        category: 'preventive',
         km_at_service: 51000
       });
       expect(parseFloat(response.body.data.cost)).toBe(150.5);
@@ -168,6 +170,88 @@ describe('Maintenance Routes API', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.details[0].message).toContain('positivo');
+    });
+
+    test('Should create maintenance with default category (other) when not provided', async () => {
+      const maintenanceData = {
+        vehicle_id: vehicleId,
+        type: 'Serviço genérico',
+        description: 'Serviço sem categoria especificada',
+        cost: 100.00,
+        km_at_service: 52000,
+        service_date: '2024-02-15'
+      };
+
+      const response = await request(app)
+        .post('/api/maintenances')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(maintenanceData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.category).toBe('other');
+    });
+
+    test('Should create maintenance with corrective category', async () => {
+      const maintenanceData = {
+        vehicle_id: vehicleId,
+        type: 'Reparo no freio',
+        category: 'corrective',
+        description: 'Troca de pastilhas de freio',
+        cost: 280.00,
+        km_at_service: 53000,
+        service_date: '2024-03-15'
+      };
+
+      const response = await request(app)
+        .post('/api/maintenances')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(maintenanceData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.category).toBe('corrective');
+    });
+
+    test('Should fail with invalid category', async () => {
+      const response = await request(app)
+        .post('/api/maintenances')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          vehicle_id: vehicleId,
+          type: 'Troca de óleo',
+          category: 'invalid_category',
+          description: 'Teste',
+          cost: 150.00,
+          km_at_service: 54000,
+          service_date: '2024-04-15'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeDefined();
+      expect(response.body.details[0].message).toContain('Categoria inválida');
+    });
+
+    test('Should accept all valid category values', async () => {
+      const validCategories = ['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'];
+
+      for (const category of validCategories) {
+        const response = await request(app)
+          .post('/api/maintenances')
+          .set('Authorization', `Bearer ${userToken}`)
+          .send({
+            vehicle_id: vehicleId,
+            type: `Teste ${category}`,
+            category: category,
+            description: `Manutenção tipo ${category}`,
+            cost: 100.00,
+            km_at_service: 55000 + validCategories.indexOf(category),
+            service_date: '2024-05-15'
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body.data.category).toBe(category);
+      }
     });
   });
 
@@ -277,13 +361,20 @@ describe('Maintenance Routes API', () => {
   describe('PUT /api/maintenances/:id', () => {
     // Skip: testMaintenanceId não foi criado
     test('Should update maintenance successfully', async () => {
+      // Obter veículo para pegar quilometragem atual
+      const vehicleResponse = await request(app)
+        .get(`/api/vehicles/${vehicleId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      const currentKm = vehicleResponse.body.data.current_km;
+
       const updateData = {
         type: 'Troca de óleo e filtros',
         description: 'Troca de óleo do motor, filtro de óleo e filtro de ar',
         cost: 200.00,
-        km_at_service: 51000,
+        km_at_service: currentKm + 1000, // Usar quilometragem maior que a atual
         service_date: '2024-01-15',
-        next_service_km: 56000,
+        next_service_km: currentKm + 6000,
         next_service_date: '2024-07-15'
       };
 
@@ -321,6 +412,37 @@ describe('Maintenance Routes API', () => {
         });
 
       expect(response.status).toBe(400);
+    });
+
+    test('Should update maintenance category successfully', async () => {
+      const updateData = {
+        type: 'Revisão preventiva',
+        category: 'inspection',
+        service_date: '2024-01-15'
+      };
+
+      const response = await request(app)
+        .put(`/api/maintenances/${testMaintenanceId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(updateData);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.category).toBe('inspection');
+    });
+
+    test('Should fail to update with invalid category', async () => {
+      const response = await request(app)
+        .put(`/api/maintenances/${testMaintenanceId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          type: 'Teste',
+          category: 'invalid_category',
+          service_date: '2024-01-15'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeDefined();
     });
   });
 

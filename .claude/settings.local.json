@@ -39,7 +39,12 @@
       "Bash(cat:*)",
       "Bash(npm run migrate:status:*)",
       "Bash(PGPASSWORD=password psql:*)",
-      "Bash(docker ps:*)"
+      "Bash(docker ps:*)",
+      "Bash(sudo docker compose exec api npm run init-db:*)",
+      "Bash(sudo docker compose exec api npm run migrate:status:*)",
+      "Bash(grep:*)",
+      "Bash(NODE_ENV=test npx jest:*)",
+      "Bash(NODE_ENV=test npm test:*)"
     ],
     "deny": [],
     "ask": []
