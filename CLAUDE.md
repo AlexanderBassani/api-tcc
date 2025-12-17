@@ -1390,6 +1390,14 @@ O projeto possui um sistema completo de migrations SQL que implementa o diagrama
 - Se o usuário pedir "faça commit e push", fazer ambos
 - Sempre atualizar `.env.example` quando modificar `.env`
 
+#### Documentação de Rotas/Endpoints
+- **SEMPRE** que criar ou modificar rotas/endpoints da API, você **DEVE**:
+  1. ✅ Atualizar o **README.md** com os novos endpoints
+  2. ✅ Atualizar o **src/config/swagger.js** com os schemas completos
+  3. ✅ Adicionar documentação Swagger nas rotas (`@swagger` comments)
+  4. ✅ Atualizar este **CLAUDE.md** se relevante para configuração do projeto
+- **Sem exceções!** A documentação deve sempre estar sincronizada com o código
+
 #### Testes
 - **SEMPRE** executar `npm test` após finalizar qualquer modificação no código
 - Se os testes falharem, **NÃO** fazer commit/push
