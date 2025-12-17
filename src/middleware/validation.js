@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 
 /**
  * Middleware para processar erros de validação
@@ -1191,6 +1191,40 @@ const validateMaintenanceTypeId = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para queries de dashboard
+ */
+const validateDashboardQuery = [
+  query('months')
+    .optional()
+    .isInt({ min: 1, max: 12 }).withMessage('Meses deve ser um número entre 1 e 12')
+    .toInt(),
+
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 50 }).withMessage('Limite deve ser um número entre 1 e 50')
+    .toInt(),
+
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para vehicle_id em query
+ */
+const validateVehicleIdQuery = [
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1230,5 +1264,7 @@ module.exports = {
   validateCreateMaintenanceType,
   validateUpdateMaintenanceType,
   validateMaintenanceTypeId,
+  validateDashboardQuery,
+  validateVehicleIdQuery,
   handleValidationErrors
 };

@@ -1055,6 +1055,24 @@ A documentação completa da API está disponível através do Swagger UI:
 - Endpoint especial para listar pendentes (próximos 30 dias ou 500km)
 - Cálculos automáticos de dias/km até vencimento
 
+### Dashboard (Autenticados)
+- `GET /api/dashboard/overview` - Visão geral completa do dashboard (despesas, atividades, lembretes)
+- `GET /api/dashboard/monthly-expenses` - Despesas mensais (combustível, manutenção, outros)
+- `GET /api/dashboard/upcoming-maintenances` - Manutenções próximas
+- `GET /api/dashboard/recent-activities` - Atividades recentes (abastecimentos e manutenções)
+
+#### Query Parameters:
+- **months**: Número de meses (1-12, padrão: 6) - para monthly-expenses
+- **limit**: Limite de resultados (1-50, padrão varia por endpoint)
+- **vehicle_id**: Filtrar por veículo específico (opcional em todos os endpoints)
+
+**Funcionalidades:**
+- Agregação de despesas por tipo (combustível, manutenção, outros)
+- Cálculo automático de percentuais
+- Timeline de atividades recentes combinando abastecimentos e manutenções
+- Lembretes ordenados por proximidade (data ou quilometragem)
+- Suporte a filtro por veículo em todos os endpoints
+
 ## Sistema de Autorização (RBAC)
 
 O projeto implementa controle de acesso baseado em roles (RBAC - Role-Based Access Control):

@@ -213,6 +213,17 @@ npm run init-db
 - `PATCH /api/reminders/:id/dismiss` - Marcar como descartado
 - `DELETE /api/reminders/:id` - Excluir lembrete
 
+### Dashboard (Requer autenticação JWT)
+- `GET /api/dashboard/overview` - Visão geral completa do dashboard (despesas + atividades + lembretes)
+- `GET /api/dashboard/monthly-expenses` - Despesas mensais por tipo (combustível, manutenção, outros)
+- `GET /api/dashboard/upcoming-maintenances` - Manutenções/lembretes próximos de vencer
+- `GET /api/dashboard/recent-activities` - Atividades recentes (abastecimentos e manutenções)
+
+**Query Parameters disponíveis:**
+- `months` (1-12, padrão: 6) - Para monthly-expenses
+- `limit` (1-50, padrão varia) - Limite de resultados
+- `vehicle_id` - Filtrar por veículo específico (opcional em todos os endpoints)
+
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
 ```
@@ -300,7 +311,8 @@ src/
 │   ├── maintenanceTypeController.js         # CRUD de tipos de manutenção
 │   ├── serviceProviderController.js         # CRUD de prestadores de serviço
 │   ├── fuelRecordController.js              # CRUD de registros de abastecimento
-│   └── reminderController.js                # Sistema de lembretes e alertas
+│   ├── reminderController.js                # Sistema de lembretes e alertas
+│   └── dashboardController.js               # Estatísticas e visão geral
 ├── middleware/      # Middlewares
 │   ├── auth.js          # Autenticação JWT e autorização RBAC
 │   ├── errorHandler.js  # Tratamento de erros

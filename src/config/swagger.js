@@ -400,6 +400,254 @@ const options = {
             },
           },
         },
+        MonthlyExpense: {
+          type: 'object',
+          properties: {
+            month: {
+              type: 'string',
+              description: 'Month abbreviation (e.g., Jan, Feb)',
+              example: 'Jan',
+            },
+            fuel: {
+              type: 'number',
+              format: 'float',
+              description: 'Total fuel expenses',
+              example: 450.50,
+            },
+            maintenance: {
+              type: 'number',
+              format: 'float',
+              description: 'Total maintenance expenses',
+              example: 200.00,
+            },
+            others: {
+              type: 'number',
+              format: 'float',
+              description: 'Other expenses',
+              example: 50.00,
+            },
+            total: {
+              type: 'number',
+              format: 'float',
+              description: 'Total monthly expenses',
+              example: 700.50,
+            },
+          },
+        },
+        ExpensesTotals: {
+          type: 'object',
+          properties: {
+            fuel: {
+              type: 'number',
+              format: 'float',
+              description: 'Total fuel expenses',
+              example: 1880.00,
+            },
+            maintenance: {
+              type: 'number',
+              format: 'float',
+              description: 'Total maintenance expenses',
+              example: 1000.00,
+            },
+            others: {
+              type: 'number',
+              format: 'float',
+              description: 'Other expenses',
+              example: 480.00,
+            },
+            total: {
+              type: 'number',
+              format: 'float',
+              description: 'Grand total',
+              example: 3360.00,
+            },
+            fuel_percentage: {
+              type: 'number',
+              format: 'float',
+              description: 'Fuel percentage',
+              example: 56.0,
+            },
+            maintenance_percentage: {
+              type: 'number',
+              format: 'float',
+              description: 'Maintenance percentage',
+              example: 30.0,
+            },
+            others_percentage: {
+              type: 'number',
+              format: 'float',
+              description: 'Others percentage',
+              example: 14.0,
+            },
+          },
+        },
+        MonthlyExpensesResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            data: {
+              type: 'object',
+              properties: {
+                monthly: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/MonthlyExpense',
+                  },
+                },
+                totals: {
+                  $ref: '#/components/schemas/ExpensesTotals',
+                },
+              },
+            },
+          },
+        },
+        UpcomingMaintenance: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'Reminder ID',
+              example: 1,
+            },
+            vehicle_id: {
+              type: 'integer',
+              description: 'Vehicle ID',
+              example: 5,
+            },
+            vehicle: {
+              type: 'string',
+              description: 'Vehicle description',
+              example: 'Honda Civic - ABC-1234',
+            },
+            title: {
+              type: 'string',
+              description: 'Maintenance title',
+              example: 'Troca de Pneus',
+            },
+            description: {
+              type: 'string',
+              description: 'Maintenance description',
+              example: 'Revisão 20.000km',
+            },
+            type: {
+              type: 'string',
+              description: 'Reminder type',
+              example: 'maintenance',
+            },
+            date: {
+              type: 'string',
+              format: 'date',
+              description: 'Reminder date',
+              example: '2025-12-20',
+            },
+            km: {
+              type: 'integer',
+              description: 'Reminder kilometer',
+              example: 20000,
+            },
+            days_until: {
+              type: 'integer',
+              description: 'Days until reminder',
+              example: 4,
+            },
+            km_until: {
+              type: 'integer',
+              description: 'Kilometers until reminder',
+              example: 500,
+            },
+          },
+        },
+        RecentActivity: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'Activity ID',
+              example: 1,
+            },
+            type: {
+              type: 'string',
+              enum: ['fuel', 'maintenance'],
+              description: 'Activity type',
+              example: 'fuel',
+            },
+            vehicle: {
+              type: 'string',
+              description: 'Vehicle description',
+              example: 'Honda Civic - ABC-1234',
+            },
+            date: {
+              type: 'string',
+              format: 'date',
+              description: 'Activity date',
+              example: '2025-12-14',
+            },
+            cost: {
+              type: 'number',
+              format: 'float',
+              description: 'Activity cost',
+              example: 315.00,
+            },
+            description: {
+              type: 'string',
+              description: 'Activity description',
+              example: 'Abastecimento de 45.0L',
+            },
+            fuel_type: {
+              type: 'string',
+              description: 'Fuel type (only for fuel activities)',
+              example: 'gasoline',
+            },
+          },
+        },
+        DashboardOverview: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            data: {
+              type: 'object',
+              properties: {
+                expenses: {
+                  type: 'object',
+                  properties: {
+                    monthly: {
+                      type: 'array',
+                      items: {
+                        $ref: '#/components/schemas/MonthlyExpense',
+                      },
+                    },
+                    totals: {
+                      $ref: '#/components/schemas/ExpensesTotals',
+                    },
+                  },
+                },
+                recent_activities: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/RecentActivity',
+                  },
+                },
+                upcoming_maintenances: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/UpcomingMaintenance',
+                  },
+                },
+                total_vehicles: {
+                  type: 'integer',
+                  description: 'Total active vehicles',
+                  example: 2,
+                },
+              },
+            },
+          },
+        },
       },
     },
     security: [
