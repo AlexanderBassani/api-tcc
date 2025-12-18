@@ -32,9 +32,10 @@ const getUserVehicles = async (req, res) => {
       },
       select: [
         'id', 'brand', 'model', 'year', 'plate', 'color', 'current_km',
-        'purchase_date', 'is_active', 'notes', 'created_at', 'updated_at'
+        'purchase_date', 'is_active', 'is_primary', 'notes', 'created_at', 'updated_at'
       ],
       order: {
+        is_primary: 'DESC',
         created_at: 'DESC'
       }
     });
@@ -81,7 +82,7 @@ const getVehicleById = async (req, res) => {
       },
       select: [
         'id', 'brand', 'model', 'year', 'plate', 'color', 'current_km',
-        'purchase_date', 'is_active', 'notes', 'created_at', 'updated_at'
+        'purchase_date', 'is_active', 'is_primary', 'notes', 'created_at', 'updated_at'
       ]
     });
 
@@ -277,7 +278,7 @@ const updateVehicle = async (req, res) => {
         where: { id: parseInt(id) },
         select: [
           'id', 'brand', 'model', 'year', 'plate', 'color', 'current_km',
-          'purchase_date', 'is_active', 'notes', 'created_at', 'updated_at'
+          'purchase_date', 'is_active', 'is_primary', 'notes', 'created_at', 'updated_at'
         ]
       });
 
@@ -534,7 +535,7 @@ const getInactiveVehicles = async (req, res) => {
       },
       select: [
         'id', 'brand', 'model', 'year', 'plate', 'color', 'current_km',
-        'purchase_date', 'is_active', 'notes', 'created_at', 'updated_at'
+        'purchase_date', 'is_active', 'is_primary', 'notes', 'created_at', 'updated_at'
       ],
       order: {
         updated_at: 'DESC'
@@ -595,7 +596,7 @@ const getUserVehiclesByUserId = async (req, res) => {
       .select([
         'vehicle.id', 'vehicle.brand', 'vehicle.model', 'vehicle.year',
         'vehicle.plate', 'vehicle.color', 'vehicle.current_km',
-        'vehicle.purchase_date', 'vehicle.is_active', 'vehicle.notes',
+        'vehicle.purchase_date', 'vehicle.is_active', 'vehicle.is_primary', 'vehicle.notes',
         'vehicle.created_at', 'vehicle.updated_at'
       ]);
 

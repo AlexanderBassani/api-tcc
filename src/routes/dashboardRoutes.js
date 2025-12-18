@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
+  getKPIs,
   getMonthlyExpenses,
   getUpcomingMaintenances,
   getRecentActivities,
@@ -18,6 +19,36 @@ const {
  *   name: Dashboard
  *   description: Dashboard statistics and overview endpoints
  */
+
+/**
+ * @swagger
+ * /api/dashboard/kpis:
+ *   get:
+ *     summary: Get dashboard KPIs (Key Performance Indicators)
+ *     description: Returns main dashboard KPIs including total vehicles, pending maintenances, fuel records, and average cost per km
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: vehicle_id
+ *         schema:
+ *           type: integer
+ *         description: Filter by specific vehicle (optional)
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Dashboard KPIs data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DashboardKPIs'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/kpis', authenticateToken, validateVehicleIdQuery, getKPIs);
 
 /**
  * @swagger
