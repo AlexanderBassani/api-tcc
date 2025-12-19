@@ -234,6 +234,218 @@ npm run init-db
 - `limit` (1-50, padrão varia) - Limite de resultados
 - `vehicle_id` - Filtrar por veículo específico (opcional em todos os endpoints)
 
+### Histórico Unificado (Requer autenticação JWT)
+Sistema completo de histórico que combina manutenções e abastecimentos em uma timeline cronológica com filtros avançados e estatísticas detalhadas.
+
+#### Endpoints Principais
+
+**`GET /api/history`** - Timeline unificada de manutenções e abastecimentos
+
+Retorna uma lista cronológica combinando todos os serviços realizados nos veículos do usuário.
+
+**Query Parameters:**
+- `vehicle_id` (int, opcional) - Filtrar por veículo específico
+- `type` (string, padrão: 'all') - Filtrar por tipo: 'all', 'maintenance', 'fuel'
+- `category` (string, opcional) - Filtrar manutenções por categoria: 'preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'
+- `fuel_type` (string, opcional) - Filtrar abastecimentos por tipo: 'gasoline', 'ethanol', 'diesel', 'gnv', 'flex'
+- `start_date` (date, opcional) - Data inicial (YYYY-MM-DD)
+- `end_date` (date, opcional) - Data final (YYYY-MM-DD)
+- `min_cost` (number, opcional) - Custo mínimo
+- `max_cost` (number, opcional) - Custo máximo
+- `sort_by` (string, padrão: 'date') - Ordenar por: 'date', 'km', 'cost'
+- `sort_order` (string, padrão: 'desc') - Ordem: 'asc', 'desc'
+- `limit` (int, padrão: 50, máx: 200) - Limite de resultados
+- `offset` (int, padrão: 0) - Paginação
+
+**Exemplo de resposta:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 123,
+        "type": "maintenance",
+        "vehicle_id": 1,
+        "vehicle_name": "Toyota Corolla 2020",
+        "date": "2025-01-15",
+        "km": 45000,
+        "cost": 350.00,
+        "description": "Troca de óleo e filtros",
+        "category": "preventive",
+        "service_provider": "Oficina ABC",
+        "is_completed": true,
+        "attachments_count": 2
+      },
+      {
+        "id": 456,
+        "type": "fuel",
+        "vehicle_id": 1,
+        "vehicle_name": "Toyota Corolla 2020",
+        "date": "2025-01-10",
+        "km": 44800,
+        "cost": 280.50,
+        "liters": 45.0,
+        "price_per_liter": 6.23,
+        "fuel_type": "gasoline",
+        "is_full_tank": true,
+        "gas_station": "Posto XYZ",
+        "consumption": 12.5
+      }
+    ],
+    "pagination": {
+      "total": 145,
+      "limit": 50,
+      "offset": 0,
+      "has_more": true
+    }
+  }
+}
+```
+
+**`GET /api/history/statistics`** - Estatísticas avançadas por período
+
+Retorna estatísticas completas incluindo custos, consumo, manutenções por categoria e projeções.
+
+**Query Parameters:**
+- `vehicle_id` (int, opcional) - Filtrar por veículo específico
+- `start_date` (date, opcional) - Data inicial (YYYY-MM-DD)
+- `end_date` (date, opcional) - Data final (YYYY-MM-DD)
+- `period` (string, opcional) - Período predefinido: 'last_month', 'last_3_months', 'last_6_months', 'last_year', 'all_time'
+
+**Exemplo de resposta:**
+```json
+{
+  "success": true,
+  "data": {
+    "period": {
+      "start_date": "2024-07-01",
+      "end_date": "2025-01-15",
+      "days": 198,
+      "km_traveled": 12000
+    },
+    "total_costs": {
+      "total": 5850.00,
+      "maintenance": 2500.00,
+      "fuel": 3350.00,
+      "maintenance_percentage": 42.7,
+      "fuel_percentage": 57.3
+    },
+    "cost_per_km": {
+      "total": 0.49,
+      "maintenance": 0.21,
+      "fuel": 0.28
+    },
+    "maintenance_stats": {
+      "total_services": 8,
+      "average_cost": 312.50,
+      "by_category": {
+        "preventive": { "count": 5, "cost": 1800.00 },
+        "corrective": { "count": 2, "cost": 600.00 }
+      },
+      "most_expensive": {
+        "description": "Troca de pastilhas de freio",
+        "cost": 800.00,
+        "date": "2024-11-20"
+      }
+    },
+    "fuel_stats": {
+      "total_refuels": 32,
+      "total_liters": 1450.0,
+      "average_consumption": 11.8,
+      "average_price_per_liter": 6.15
+    },
+    "projections": {
+      "monthly_average": 975.00,
+      "next_3_months_estimate": 2925.00,
+      "next_6_months_estimate": 5850.00,
+      "cost_per_km_trend": "stable"
+    }
+  }
+}
+```
+
+**`GET /api/history/compare-vehicles`** - Comparar desempenho entre veículos
+
+Compara custos e performance entre 2-5 veículos para um período específico.
+
+**Query Parameters:**
+- `vehicle_ids` (string, obrigatório) - IDs separados por vírgula (ex: "1,2,3")
+- `start_date` (date, opcional) - Data inicial (YYYY-MM-DD)
+- `end_date` (date, opcional) - Data final (YYYY-MM-DD)
+- `period` (string, opcional) - Período predefinido: 'last_month', 'last_3_months', 'last_6_months', 'last_year', 'all_time'
+
+**Exemplo de resposta:**
+```json
+{
+  "success": true,
+  "data": {
+    "period": {
+      "start_date": "2024-07-01",
+      "end_date": "2025-01-15"
+    },
+    "vehicles": [
+      {
+        "vehicle_id": 1,
+        "name": "Toyota Corolla 2020",
+        "km_traveled": 12000,
+        "total_cost": 5850.00,
+        "cost_per_km": 0.49,
+        "maintenance_cost": 2500.00,
+        "fuel_cost": 3350.00,
+        "average_consumption": 11.8,
+        "services_count": 40,
+        "efficiency_rank": 1
+      }
+    ],
+    "summary": {
+      "most_economical": {
+        "vehicle_id": 1,
+        "name": "Toyota Corolla 2020",
+        "cost_per_km": 0.49
+      },
+      "most_expensive": {
+        "vehicle_id": 2,
+        "name": "Honda Civic 2019",
+        "cost_per_km": 0.55
+      },
+      "best_consumption": {
+        "vehicle_id": 1,
+        "name": "Toyota Corolla 2020",
+        "average_consumption": 11.8
+      }
+    }
+  }
+}
+```
+
+#### Casos de Uso
+
+**1. Listar apenas manutenções preventivas dos últimos 6 meses:**
+```
+GET /api/history?type=maintenance&category=preventive&period=last_6_months
+```
+
+**2. Listar apenas abastecimentos de gasolina ordenados por custo:**
+```
+GET /api/history?type=fuel&fuel_type=gasoline&sort_by=cost&sort_order=desc
+```
+
+**3. Buscar serviços de um veículo específico com custo acima de R$ 100:**
+```
+GET /api/history?vehicle_id=1&min_cost=100
+```
+
+**4. Obter estatísticas do último ano:**
+```
+GET /api/history/statistics?period=last_year
+```
+
+**5. Comparar eficiência de 3 veículos:**
+```
+GET /api/history/compare-vehicles?vehicle_ids=1,2,3&period=last_6_months
+```
+
 ### Autenticação JWT
 Para rotas protegidas, adicione o header:
 ```

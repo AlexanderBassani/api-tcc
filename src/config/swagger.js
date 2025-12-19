@@ -973,6 +973,286 @@ const options = {
             },
           },
         },
+        HistoryResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            data: {
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    oneOf: [
+                      {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer', example: 123 },
+                          type: { type: 'string', enum: ['maintenance'], example: 'maintenance' },
+                          vehicle_id: { type: 'integer', example: 1 },
+                          vehicle_name: { type: 'string', example: 'Toyota Corolla 2020' },
+                          date: { type: 'string', format: 'date', example: '2025-01-15' },
+                          km: { type: 'integer', example: 45000 },
+                          cost: { type: 'number', example: 350.00 },
+                          description: { type: 'string', example: 'Troca de óleo e filtros' },
+                          category: { type: 'string', enum: ['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'], example: 'preventive' },
+                          service_provider: { type: 'string', example: 'Oficina ABC' },
+                          is_completed: { type: 'boolean', example: true },
+                          attachments_count: { type: 'integer', example: 2 },
+                        },
+                      },
+                      {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer', example: 456 },
+                          type: { type: 'string', enum: ['fuel'], example: 'fuel' },
+                          vehicle_id: { type: 'integer', example: 1 },
+                          vehicle_name: { type: 'string', example: 'Toyota Corolla 2020' },
+                          date: { type: 'string', format: 'date', example: '2025-01-10' },
+                          km: { type: 'integer', example: 44800 },
+                          cost: { type: 'number', example: 280.50 },
+                          liters: { type: 'number', example: 45.0 },
+                          price_per_liter: { type: 'number', example: 6.23 },
+                          fuel_type: { type: 'string', enum: ['gasoline', 'ethanol', 'diesel', 'gnv', 'flex'], example: 'gasoline' },
+                          is_full_tank: { type: 'boolean', example: true },
+                          gas_station: { type: 'string', example: 'Posto XYZ' },
+                          consumption: { type: 'number', example: 12.5, nullable: true },
+                        },
+                      },
+                    ],
+                  },
+                },
+                pagination: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'integer', example: 145 },
+                    limit: { type: 'integer', example: 50 },
+                    offset: { type: 'integer', example: 0 },
+                    has_more: { type: 'boolean', example: true },
+                  },
+                },
+                filters_applied: {
+                  type: 'object',
+                  properties: {
+                    vehicle_id: { type: 'integer', nullable: true, example: 1 },
+                    type: { type: 'string', example: 'all' },
+                    category: { type: 'string', nullable: true, example: null },
+                    fuel_type: { type: 'string', nullable: true, example: null },
+                    start_date: { type: 'string', format: 'date', nullable: true, example: '2024-07-01' },
+                    end_date: { type: 'string', format: 'date', nullable: true, example: '2025-01-15' },
+                    min_cost: { type: 'number', nullable: true, example: null },
+                    max_cost: { type: 'number', nullable: true, example: null },
+                    sort_by: { type: 'string', example: 'date' },
+                    sort_order: { type: 'string', example: 'desc' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        StatisticsResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                period: {
+                  type: 'object',
+                  properties: {
+                    start_date: { type: 'string', format: 'date', example: '2024-07-01' },
+                    end_date: { type: 'string', format: 'date', example: '2025-01-15' },
+                    days: { type: 'integer', example: 198 },
+                    km_traveled: { type: 'integer', example: 12000 },
+                  },
+                },
+                total_costs: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'number', example: 5850.00 },
+                    maintenance: { type: 'number', example: 2500.00 },
+                    fuel: { type: 'number', example: 3350.00 },
+                    maintenance_percentage: { type: 'number', example: 42.7 },
+                    fuel_percentage: { type: 'number', example: 57.3 },
+                  },
+                },
+                cost_per_km: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'number', example: 0.49 },
+                    maintenance: { type: 'number', example: 0.21 },
+                    fuel: { type: 'number', example: 0.28 },
+                  },
+                },
+                maintenance_stats: {
+                  type: 'object',
+                  properties: {
+                    total_services: { type: 'integer', example: 8 },
+                    average_cost: { type: 'number', example: 312.50 },
+                    by_category: {
+                      type: 'object',
+                      properties: {
+                        preventive: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 5 },
+                            cost: { type: 'number', example: 1800.00 },
+                          },
+                        },
+                        corrective: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 2 },
+                            cost: { type: 'number', example: 600.00 },
+                          },
+                        },
+                        inspection: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 1 },
+                            cost: { type: 'number', example: 100.00 },
+                          },
+                        },
+                        other: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 0 },
+                            cost: { type: 'number', example: 0 },
+                          },
+                        },
+                      },
+                    },
+                    most_expensive: {
+                      type: 'object',
+                      nullable: true,
+                      properties: {
+                        description: { type: 'string', example: 'Troca de pastilhas de freio' },
+                        cost: { type: 'number', example: 800.00 },
+                        date: { type: 'string', format: 'date', example: '2024-11-20' },
+                      },
+                    },
+                  },
+                },
+                fuel_stats: {
+                  type: 'object',
+                  properties: {
+                    total_refuels: { type: 'integer', example: 32 },
+                    total_liters: { type: 'number', example: 1450.0 },
+                    average_consumption: { type: 'number', nullable: true, example: 11.8 },
+                    average_price_per_liter: { type: 'number', example: 6.15 },
+                    by_fuel_type: {
+                      type: 'object',
+                      properties: {
+                        gasoline: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 20 },
+                            liters: { type: 'number', example: 900.0 },
+                            cost: { type: 'number', example: 2100.00 },
+                          },
+                        },
+                        ethanol: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 12 },
+                            liters: { type: 'number', example: 550.0 },
+                            cost: { type: 'number', example: 1250.00 },
+                          },
+                        },
+                        diesel: {
+                          type: 'object',
+                          properties: {
+                            count: { type: 'integer', example: 0 },
+                            liters: { type: 'number', example: 0 },
+                            cost: { type: 'number', example: 0 },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                projections: {
+                  type: 'object',
+                  properties: {
+                    monthly_average: { type: 'number', example: 975.00 },
+                    next_3_months_estimate: { type: 'number', example: 2925.00 },
+                    next_6_months_estimate: { type: 'number', example: 5850.00 },
+                    cost_per_km_trend: { type: 'string', enum: ['stable', 'increasing', 'decreasing'], example: 'stable' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        CompareVehiclesResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                period: {
+                  type: 'object',
+                  properties: {
+                    start_date: { type: 'string', format: 'date', example: '2024-07-01' },
+                    end_date: { type: 'string', format: 'date', example: '2025-01-15' },
+                  },
+                },
+                vehicles: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      vehicle_id: { type: 'integer', example: 1 },
+                      name: { type: 'string', example: 'Toyota Corolla 2020' },
+                      km_traveled: { type: 'integer', example: 12000 },
+                      total_cost: { type: 'number', example: 5850.00 },
+                      cost_per_km: { type: 'number', example: 0.49 },
+                      maintenance_cost: { type: 'number', example: 2500.00 },
+                      fuel_cost: { type: 'number', example: 3350.00 },
+                      average_consumption: { type: 'number', nullable: true, example: 11.8 },
+                      services_count: { type: 'integer', example: 40 },
+                      efficiency_rank: { type: 'integer', example: 1 },
+                    },
+                  },
+                },
+                summary: {
+                  type: 'object',
+                  properties: {
+                    most_economical: {
+                      type: 'object',
+                      properties: {
+                        vehicle_id: { type: 'integer', example: 1 },
+                        name: { type: 'string', example: 'Toyota Corolla 2020' },
+                        cost_per_km: { type: 'number', example: 0.49 },
+                      },
+                    },
+                    most_expensive: {
+                      type: 'object',
+                      properties: {
+                        vehicle_id: { type: 'integer', example: 2 },
+                        name: { type: 'string', example: 'Honda Civic 2019' },
+                        cost_per_km: { type: 'number', example: 0.55 },
+                      },
+                    },
+                    best_consumption: {
+                      type: 'object',
+                      nullable: true,
+                      properties: {
+                        vehicle_id: { type: 'integer', example: 1 },
+                        name: { type: 'string', example: 'Toyota Corolla 2020' },
+                        average_consumption: { type: 'number', example: 11.8 },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     security: [
