@@ -1237,6 +1237,151 @@ const validateVehicleIdQuery = [
   handleValidationErrors
 ];
 
+/**
+ * Validações para filtros de histórico
+ */
+const validateHistoryFilters = [
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  query('type')
+    .optional()
+    .isIn(['all', 'maintenance', 'fuel']).withMessage('Tipo deve ser "all", "maintenance" ou "fuel"'),
+
+  query('category')
+    .optional()
+    .isIn(['preventive', 'corrective', 'inspection', 'upgrade', 'warranty', 'recall', 'other'])
+    .withMessage('Categoria de manutenção inválida'),
+
+  query('fuel_type')
+    .optional()
+    .isIn(['gasoline', 'ethanol', 'diesel', 'gnv', 'flex'])
+    .withMessage('Tipo de combustível inválido'),
+
+  query('start_date')
+    .optional()
+    .isISO8601().withMessage('Data inicial inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  query('end_date')
+    .optional()
+    .isISO8601().withMessage('Data final inválida (use formato YYYY-MM-DD)')
+    .toDate()
+    .custom((value, { req }) => {
+      if (req.query.start_date && value) {
+        const startDate = new Date(req.query.start_date);
+        const endDate = new Date(value);
+        if (startDate > endDate) {
+          throw new Error('Data inicial deve ser anterior à data final');
+        }
+      }
+      return true;
+    }),
+
+  query('min_cost')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Custo mínimo deve ser um número positivo')
+    .toFloat(),
+
+  query('max_cost')
+    .optional()
+    .isFloat({ min: 0 }).withMessage('Custo máximo deve ser um número positivo')
+    .toFloat(),
+
+  query('sort_by')
+    .optional()
+    .isIn(['date', 'km', 'cost']).withMessage('Ordenação deve ser "date", "km" ou "cost"'),
+
+  query('sort_order')
+    .optional()
+    .isIn(['asc', 'desc']).withMessage('Ordem deve ser "asc" ou "desc"'),
+
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 }).withMessage('Limite deve ser entre 1 e 200')
+    .toInt(),
+
+  query('offset')
+    .optional()
+    .isInt({ min: 0 }).withMessage('Offset deve ser um número positivo')
+    .toInt(),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para queries de estatísticas
+ */
+const validateStatisticsQuery = [
+  query('vehicle_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('ID do veículo deve ser um número válido')
+    .toInt(),
+
+  query('start_date')
+    .optional()
+    .isISO8601().withMessage('Data inicial inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  query('end_date')
+    .optional()
+    .isISO8601().withMessage('Data final inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  query('period')
+    .optional()
+    .isIn(['last_month', 'last_3_months', 'last_6_months', 'last_year', 'all_time'])
+    .withMessage('Período deve ser "last_month", "last_3_months", "last_6_months", "last_year" ou "all_time"'),
+
+  handleValidationErrors
+];
+
+/**
+ * Validações para comparação de veículos
+ */
+const validateCompareVehicles = [
+  query('vehicle_ids')
+    .notEmpty().withMessage('IDs dos veículos são obrigatórios')
+    .custom((value) => {
+      const ids = Array.isArray(value) ? value : value.split(',').map(id => id.trim());
+      if (ids.length < 2) {
+        throw new Error('Pelo menos 2 veículos são necessários para comparação');
+      }
+      if (ids.length > 5) {
+        throw new Error('Máximo de 5 veículos permitidos para comparação');
+      }
+      // Verifica se todos são números válidos
+      if (!ids.every(id => !isNaN(parseInt(id)) && parseInt(id) > 0)) {
+        throw new Error('Todos os IDs devem ser números válidos');
+      }
+      // Verifica se há IDs duplicados
+      const uniqueIds = new Set(ids.map(id => parseInt(id)));
+      if (uniqueIds.size !== ids.length) {
+        throw new Error('IDs de veículos duplicados não são permitidos');
+      }
+      return true;
+    }),
+
+  query('start_date')
+    .optional()
+    .isISO8601().withMessage('Data inicial inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  query('end_date')
+    .optional()
+    .isISO8601().withMessage('Data final inválida (use formato YYYY-MM-DD)')
+    .toDate(),
+
+  query('period')
+    .optional()
+    .isIn(['last_month', 'last_3_months', 'last_6_months', 'last_year', 'all_time'])
+    .withMessage('Período deve ser "last_month", "last_3_months", "last_6_months", "last_year" ou "all_time"'),
+
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1278,5 +1423,8 @@ module.exports = {
   validateMaintenanceTypeId,
   validateDashboardQuery,
   validateVehicleIdQuery,
+  validateHistoryFilters,
+  validateStatisticsQuery,
+  validateCompareVehicles,
   handleValidationErrors
 };

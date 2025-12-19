@@ -223,6 +223,7 @@ npm run init-db
 - `DELETE /api/reminders/:id` - Excluir lembrete
 
 ### Dashboard (Requer autenticação JWT)
+- `GET /api/dashboard/kpis` - KPIs principais (veículos, manutenções pendentes, abastecimentos, custo/km)
 - `GET /api/dashboard/overview` - Visão geral completa do dashboard (despesas + atividades + lembretes)
 - `GET /api/dashboard/monthly-expenses` - Despesas mensais por tipo (combustível, manutenção, outros)
 - `GET /api/dashboard/upcoming-maintenances` - Manutenções/lembretes próximos de vencer

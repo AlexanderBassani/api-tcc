@@ -603,6 +603,109 @@ const options = {
             },
           },
         },
+        DashboardKPIs: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            data: {
+              type: 'object',
+              properties: {
+                total_vehicles: {
+                  type: 'object',
+                  properties: {
+                    value: {
+                      type: 'integer',
+                      description: 'Total active vehicles',
+                      example: 12,
+                    },
+                    change_this_month: {
+                      type: 'integer',
+                      description: 'Vehicles added this month',
+                      example: 2,
+                    },
+                    change_percent: {
+                      type: 'number',
+                      format: 'float',
+                      description: 'Percentage change vs last month',
+                      example: 20.0,
+                    },
+                  },
+                },
+                pending_maintenances: {
+                  type: 'object',
+                  properties: {
+                    value: {
+                      type: 'integer',
+                      description: 'Number of pending maintenances',
+                      example: 5,
+                    },
+                    change_this_month: {
+                      type: 'integer',
+                      description: 'Change in pending maintenances this month',
+                      example: -3,
+                    },
+                    change_percent: {
+                      type: 'number',
+                      format: 'float',
+                      description: 'Percentage change vs last month',
+                      example: -37.5,
+                    },
+                  },
+                },
+                fuel_records_this_month: {
+                  type: 'object',
+                  properties: {
+                    value: {
+                      type: 'integer',
+                      description: 'Number of fuel records this month',
+                      example: 28,
+                    },
+                    change_percent: {
+                      type: 'number',
+                      format: 'float',
+                      description: 'Percentage change vs last month',
+                      example: 8.0,
+                    },
+                    total_cost: {
+                      type: 'number',
+                      format: 'float',
+                      description: 'Total fuel cost this month',
+                      example: 1450.50,
+                    },
+                  },
+                },
+                avg_cost_per_km: {
+                  type: 'object',
+                  properties: {
+                    value: {
+                      type: 'number',
+                      format: 'float',
+                      description: 'Average cost per kilometer',
+                      example: 0.85,
+                    },
+                    avg_consumption: {
+                      type: 'number',
+                      format: 'float',
+                      nullable: true,
+                      description: 'Average fuel consumption (km/L)',
+                      example: 12.5,
+                    },
+                    avg_price_per_liter: {
+                      type: 'number',
+                      format: 'float',
+                      nullable: true,
+                      description: 'Average fuel price per liter',
+                      example: 5.89,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         DashboardOverview: {
           type: 'object',
           properties: {

@@ -171,6 +171,28 @@ describe('Maintenance Type Routes API', () => {
 
       const oilChangeType = listResponse.body.data.find(t => t.name === 'troca_oleo');
 
+      // Se não encontrar o tipo pré-populado, criar um
+      if (!oilChangeType) {
+        const createResponse = await request(app)
+          .post('/api/maintenance-types')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'troca_oleo',
+            display_name: 'Troca de Óleo',
+            typical_interval_km: 10000,
+            typical_interval_months: 6,
+            icon: 'oil'
+          });
+
+        const response = await request(app)
+          .get(`/api/maintenance-types/${createResponse.body.data.id}`)
+          .set('Authorization', `Bearer ${userToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        return;
+      }
+
       const response = await request(app)
         .get(`/api/maintenance-types/${oilChangeType.id}`)
         .set('Authorization', `Bearer ${userToken}`);
@@ -423,7 +445,23 @@ describe('Maintenance Type Routes API', () => {
         .get('/api/maintenance-types')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      const oilChangeType = typesResponse.body.data.find(t => t.name === 'troca_oleo');
+      let oilChangeType = typesResponse.body.data.find(t => t.name === 'troca_oleo');
+
+      // Se não encontrar o tipo pré-populado, criar um
+      if (!oilChangeType) {
+        const createResponse = await request(app)
+          .post('/api/maintenance-types')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'troca_oleo',
+            display_name: 'Troca de Óleo',
+            typical_interval_km: 10000,
+            typical_interval_months: 6,
+            icon: 'oil'
+          });
+
+        oilChangeType = createResponse.body.data;
+      }
 
       // Criar um veículo
       const testPlate = generateTestPlate('mercosul');

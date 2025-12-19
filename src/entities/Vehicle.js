@@ -54,6 +54,10 @@ module.exports = new EntitySchema({
       type: 'boolean',
       default: true
     },
+    is_primary: {
+      type: 'boolean',
+      default: false
+    },
     created_at: {
       type: 'timestamp',
       createDate: true
