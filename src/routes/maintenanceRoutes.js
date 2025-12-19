@@ -5,6 +5,7 @@ const {
     createMaintenance,
     updateMaintenance,
     deleteMaintenance,
+    completeMaintenance,
     getVehicleMaintenances,
     getMaintenanceStats
 } = require('../controllers/maintenanceController');
@@ -293,6 +294,44 @@ router.put('/:id', authenticateToken, validateMaintenanceId, validateUpdateMaint
 
 /**
  * @swagger
+ * /api/maintenances/{id}/complete:
+ *   patch:
+ *     summary: Marcar manutenção como concluída
+ *     tags: [Manutenções]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da manutenção
+ *     responses:
+ *       200:
+ *         description: Manutenção marcada como concluída
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Maintenance'
+ *       400:
+ *         description: Manutenção já está concluída
+ *       404:
+ *         description: Manutenção não encontrada
+ *       401:
+ *         description: Não autenticado
+ */
+router.patch('/:id/complete', authenticateToken, validateMaintenanceId, completeMaintenance);
+
+/**
+ * @swagger
  * /api/maintenances/{id}:
  *   delete:
  *     summary: Excluir manutenção
@@ -317,3 +356,4 @@ router.put('/:id', authenticateToken, validateMaintenanceId, validateUpdateMaint
 router.delete('/:id', authenticateToken, validateMaintenanceId, deleteMaintenance);
 
 module.exports = router;
+

@@ -477,6 +477,75 @@ const deleteMaintenance = async (req, res) => {
 };
 
 /**
+ * PATCH /api/maintenances/:id/complete
+ * Marcar manutenção como concluída
+ */
+const completeMaintenance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { maintenanceRepository } = getRepositories();
+
+    // Verificar se a manutenção pertence ao usuário
+    const maintenance = await maintenanceRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.vehicle', 'v')
+      .where('m.id = :id', { id: parseInt(id) })
+      .andWhere('v.user_id = :userId', { userId })
+      .select(['m.id', 'm.is_completed'])
+      .getOne();
+
+    if (!maintenance) {
+      return res.status(404).json({
+        error: 'Manutenção não encontrada',
+        message: 'Manutenção não existe ou não pertence ao usuário'
+      });
+    }
+
+    if (maintenance.is_completed) {
+      return res.status(400).json({
+        error: 'Operação inválida',
+        message: 'Esta manutenção já está marcada como concluída'
+      });
+    }
+
+    // Marcar como concluída
+    await maintenanceRepository.update(parseInt(id), {
+      is_completed: true,
+      completed_at: new Date()
+    });
+
+    // Buscar manutenção atualizada
+    const updatedMaintenance = await maintenanceRepository.findOne({
+      where: { id: parseInt(id) }
+    });
+
+    logger.info('Maintenance marked as completed', {
+      maintenanceId: id,
+      userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Manutenção marcada como concluída',
+      data: updatedMaintenance
+    });
+  } catch (error) {
+    logger.error('Error marking maintenance as completed', {
+      maintenanceId: req.params.id,
+      userId: req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      error: 'Erro interno do servidor',
+      message: 'Não foi possível marcar a manutenção como concluída'
+    });
+  }
+};
+
+/**
  * GET /api/maintenances/vehicle/:vehicleId
  * Listar manutenções de um veículo específico
  */
@@ -587,6 +656,7 @@ module.exports = {
   createMaintenance,
   updateMaintenance,
   deleteMaintenance,
+  completeMaintenance,
   getVehicleMaintenances,
   getMaintenanceStats
 };

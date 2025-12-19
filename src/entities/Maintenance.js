@@ -63,6 +63,14 @@ module.exports = new EntitySchema({
       type: 'date',
       nullable: true
     },
+    is_completed: {
+      type: 'boolean',
+      default: false
+    },
+    completed_at: {
+      type: 'timestamp',
+      nullable: true
+    },
     created_at: {
       type: 'timestamp',
       createDate: true
