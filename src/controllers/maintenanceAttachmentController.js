@@ -10,7 +10,9 @@ const maintenanceRepository = AppDataSource.getRepository('Maintenance');
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/maintenance-attachments');
+    // Use /tmp em ambiente de teste para evitar problemas de permissão
+    const baseDir = process.env.NODE_ENV === 'test' ? '/tmp' : path.join(__dirname, '../..');
+    const uploadDir = path.join(baseDir, 'uploads/maintenance-attachments');
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       // Verificar permissões de escrita
