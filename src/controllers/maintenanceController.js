@@ -36,6 +36,7 @@ const getUserMaintenances = async (req, res) => {
         'm.id', 'm.vehicle_id', 'm.service_provider_id', 'm.type', 'm.description',
         'm.cost', 'm.km_at_service', 'm.service_date', 'm.next_service_km',
         'm.next_service_date', 'm.invoice_number', 'm.warranty_until',
+        'm.is_completed', 'm.completed_at',
         'm.created_at', 'm.updated_at',
         'v.brand', 'v.model', 'v.year', 'v.plate',
         'sp.name', 'sp.phone'
@@ -109,6 +110,7 @@ const getMaintenanceById = async (req, res) => {
         'm.id', 'm.vehicle_id', 'm.service_provider_id', 'm.type', 'm.description',
         'm.cost', 'm.km_at_service', 'm.service_date', 'm.next_service_km',
         'm.next_service_date', 'm.invoice_number', 'm.warranty_until',
+        'm.is_completed', 'm.completed_at',
         'm.created_at', 'm.updated_at',
         'v.brand', 'v.model', 'v.year', 'v.plate',
         'sp.name', 'sp.phone', 'sp.email', 'sp.address'
